@@ -48,7 +48,8 @@ arguments=""
 # check for terminal output
 test -t 0 && colorize
 
-warning "After version 0.8.1 autotools support has been removed.\n \
+warning "After version 0.8.1.1 (mid 2025) the support for\n \
+        GNU autotools has been removed.\n \
         We migrated to CMake (https://cmake.org) exclusively.\n \
         Please check the docs/BUILDING.md document. Now follows a\n \
         generated help based on provided arguments for pointers\n \
@@ -115,6 +116,11 @@ while [[ $# -gt 0 ]]; do
 
     --with-lhasa*|--without-lhasa*)
       argument_simple "$1" "Lhasa" "PLAYER_WITH_LHASA"
+      shift
+      ;;
+
+    --with-nlohmann_json*|--without-nlohmann_json*)
+      argument_simple "$1" "JSON" "PLAYER_WITH_NLOHMANN_JSON"
       shift
       ;;
 

@@ -63,7 +63,7 @@ has xz
 # options
 V=""
 WORKTREE_ATTRIBUTES=""
-TREEISH=master
+TREEISH=HEAD
 while getopts ":hvt:w" ARG; do
   case $ARG in
     v)
