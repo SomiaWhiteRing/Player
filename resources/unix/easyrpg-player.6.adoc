@@ -360,6 +360,9 @@ Options in section 'Patch' (see also options starting with *--patch*):
 *DynRPG*=_1_::
   Same as *--patch-dynrpg*.
 
+*EasyRPG*=_1_::
+  Same as *--patch-easyrpg*.
+
 *KeyPatch*=_1_::
   Same as *--patch-key-patch*.
 
