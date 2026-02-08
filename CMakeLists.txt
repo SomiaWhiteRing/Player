@@ -190,6 +190,8 @@ add_library(${PROJECT_NAME} OBJECT
 	src/game_map.h
 	src/game_message.cpp
 	src/game_message.h
+	src/message_history.cpp
+	src/message_history.h
 	src/game_message_terms.cpp
 	src/game_message_terms.h
 	src/game_party_base.cpp
@@ -295,6 +297,8 @@ add_library(${PROJECT_NAME} OBJECT
 	src/scene.cpp
 	src/scene_debug.cpp
 	src/scene_debug.h
+	src/scene_history.cpp
+	src/scene_history.h
 	src/scene_end.cpp
 	src/scene_end.h
 	src/scene_equip.cpp
@@ -440,6 +444,8 @@ add_library(${PROJECT_NAME} OBJECT
 	src/window_menustatus.h
 	src/window_message.cpp
 	src/window_message.h
+	src/window_history_entry.cpp
+	src/window_history_entry.h
 	src/window_name.cpp
 	src/window_name.h
 	src/window_numberinput.cpp

@@ -1147,6 +1147,7 @@ Input::Keys::InputKey SdlKey2InputKey(SDL_Keycode sdlkey) {
 		case SDL_SCANCODE_BACKSLASH		: return Input::Keys::BACKSLASH;
 		case SDL_SCANCODE_SEMICOLON		: return Input::Keys::SEMICOLON;
 		case SDL_SCANCODE_APOSTROPHE	: return Input::Keys::APOSTROPH;
+		case SDL_SCANCODE_GRAVE			: return Input::Keys::BACKTICK;
 
 		default							: return Input::Keys::NONE;
 	}

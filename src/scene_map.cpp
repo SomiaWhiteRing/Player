@@ -21,6 +21,7 @@
 #include "scene_menu.h"
 #include "scene_save.h"
 #include "scene_debug.h"
+#include "scene_history.h"
 #include "scene_settings.h"
 #include "main_data.h"
 #include "game_map.h"
@@ -291,6 +292,10 @@ void Scene_Map::UpdateSceneCalling() {
 		if (Input::IsTriggered(Input::SETTINGS_MENU)) {
 			call = std::make_shared<Scene_Settings>();
 		}
+	}
+
+	if (call == nullptr && Input::IsTriggered(Input::HISTORY_MENU)) {
+		call = std::make_shared<Scene_History>();
 	}
 
 	if (Player::debug_flag) {

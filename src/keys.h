@@ -136,6 +136,7 @@ namespace Input {
 			BACKSLASH, // On some keyboards after '
 			SEMICOLON, // After L: ;, '
 			APOSTROPH,
+			BACKTICK, // Grave accent, below ESC
 
 #if defined(USE_MOUSE) && defined(SUPPORT_MOUSE)
 			MOUSE_LEFT,
@@ -334,6 +335,7 @@ namespace Input {
 			"BACKSLASH", // On some keyboards after '
 			"SEMICOLON", // After L: ;, '
 			"APOSTROPH",
+		"BACKTICK",
 
 #if defined(USE_MOUSE) && defined(SUPPORT_MOUSE)
 			"MOUSE_LEFT",
