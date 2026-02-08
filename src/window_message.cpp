@@ -230,6 +230,9 @@ void Window_Message::StartMessageProcessing(PendingMessage pm) {
 	DebugLog("{}: MSG START OPEN {}", open_frames);
 
 	InsertNewPage();
+
+	// Capture message for history when it appears
+	CaptureMessageForHistory();
 }
 
 void Window_Message::OnFinishPage() {
@@ -449,9 +452,6 @@ void Window_Message::CaptureMessageForHistory() {
 
 void Window_Message::FinishMessageProcessing() {
 	DebugLog("{}: FINISH MSG");
-
-	// Capture message for history before clearing state
-	CaptureMessageForHistory();
 
 	text.clear();
 	text_index = text.data();
