@@ -38,6 +38,7 @@
 #include "font.h"
 #include "cache.h"
 #include "text.h"
+#include "message_history.h"
 
 // FIXME: Off by 1 bug in window base class
 constexpr int message_animation_frames = 7;
@@ -81,6 +82,41 @@ void DebugLogText(const char* fmt, Args&&... args) {
 template <typename... Args>
 void DebugLogText(const char*, Args&&...) { }
 #endif
+
+/**
+ * Cleans message text by removing control characters.
+ * Used for message history to store plain text.
+ */
+std::string CleanMessageText(const std::string& raw_text) {
+	std::string result;
+	result.reserve(raw_text.size());
+
+	for (size_t i = 0; i < raw_text.size(); ++i) {
+		if (raw_text[i] == '\\' && i + 1 < raw_text.size()) {
+			char next = raw_text[i + 1];
+			if (next == 'c' || next == 's') {
+				// Skip color/speed control codes \c[n] \s[n]
+				i += 2; // Skip \c or \s
+				if (i < raw_text.size() && raw_text[i] == '[') {
+					i++; // Skip [
+					while (i < raw_text.size() && raw_text[i] != ']') i++;
+				}
+				continue;
+			} else if (next == 'f') {
+				// Page separator, replace with newline
+				result += '\n';
+				i++;
+				continue;
+			} else if (next == '$' || next == '>' || next == '<' || next == '^' || next == '.' || next == '|' || next == '!') {
+				// Skip special control codes
+				i++;
+				continue;
+			}
+		}
+		result += raw_text[i];
+	}
+	return result;
+}
 } //namespace
 
 // C4428 is nonsense
@@ -372,8 +408,68 @@ void Window_Message::InsertNewLine() {
 	prev_char_waited = true;
 }
 
+void Window_Message::CaptureMessageForHistory() {
+	// Don't capture empty messages
+	if (pending_message.GetLines().empty()) {
+		return;
+	}
+
+	MessageHistoryEntry entry;
+
+	// Capture text content (combine all lines)
+	const auto& lines = pending_message.GetLines();
+	std::string raw_text;
+	for (size_t i = 0; i < lines.size(); ++i) {
+		if (i > 0) {
+			raw_text += "\n";
+		}
+		raw_text += lines[i];
+	}
+
+	// Process text to remove timing control characters and handle content display characters
+	entry.text = Game_Message::ProcessTextForHistory(raw_text);
+
+	// Capture face information
+	if (IsFaceEnabled()) {
+		entry.face_name = std::string(Main_Data::game_system->GetMessageFaceName());
+		entry.face_index = Main_Data::game_system->GetMessageFaceIndex();
+		entry.face_flipped = Main_Data::game_system->IsMessageFaceFlipped();
+		entry.face_right_position = Main_Data::game_system->IsMessageFaceRightPosition();
+	}
+
+	// Capture window display attributes
+	entry.window_position = Main_Data::game_system->GetMessagePosition();
+	entry.transparent = Main_Data::game_system->IsMessageTransparent();
+	entry.position_fixed = Main_Data::game_system->IsMessagePositionFixed();
+
+	// Capture System tile information (CRITICAL for re-rendering!)
+	entry.system_name = std::string(Main_Data::game_system->GetSystemName());
+	entry.message_stretch = static_cast<int>(Main_Data::game_system->GetMessageStretch());
+
+	// Capture choices if present (keep raw text for re-rendering)
+	if (pending_message.HasChoices()) {
+		int choice_start = pending_message.GetChoiceStartLine();
+		int num_choices = pending_message.GetNumChoices();
+		for (int i = 0; i < num_choices; ++i) {
+			entry.choices.push_back(lines[choice_start + i]);
+		}
+		// Note: selected_choice will be set to -1 by default
+		// In Phase 3, we can add logic to track the actual selection
+	}
+
+	// Capture timestamp
+	entry.timestamp = Main_Data::game_system->GetFrameCounter();
+
+	// Add to history
+	Game_Message::GetMessageHistory().AddEntry(std::move(entry));
+}
+
 void Window_Message::FinishMessageProcessing() {
 	DebugLog("{}: FINISH MSG");
+
+	// Capture message for history before clearing state
+	CaptureMessageForHistory();
+
 	text.clear();
 	text_index = text.data();
 
