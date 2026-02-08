@@ -937,6 +937,9 @@ void Player::ResetGameObjects() {
 
 	Main_Data::game_strings = std::make_unique<Game_Strings>();
 
+	// 清空消息历史记录
+	Game_Message::ClearMessageHistory();
+
 	// Prevent a crash when Game_Map wants to reset the screen content
 	// because Setup() modified pictures array
 	Main_Data::game_screen = std::make_unique<Game_Screen>();
@@ -1211,6 +1214,9 @@ void Player::LoadSavegame(const std::string& save_name, int save_id) {
 	Main_Data::game_targets->SetSaveData(std::move(save->targets));
 	Main_Data::game_player->SetSaveData(save->party_location);
 	Main_Data::game_windows->SetSaveData(std::move(save->easyrpg_data.windows));
+
+	// 清空消息历史记录（读档时重置）
+	Game_Message::ClearMessageHistory();
 
 	int map_id = Main_Data::game_player->GetMapId();
 

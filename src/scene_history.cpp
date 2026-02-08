@@ -75,7 +75,7 @@ void Scene_History::vUpdate() {
 	}
 
 	// Handle close input
-	if (Input::IsTriggered(Input::CANCEL) || Input::IsTriggered(Input::HISTORY_MENU)) {
+	if (Input::IsTriggered(Input::CANCEL) || Input::IsTriggered(Input::HISTORY_MENU) || Input::IsTriggered(Input::MOUSE_RIGHT)) {
 		// Play cancel sound effect
 		Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Cancel));
 		Scene::Pop();
@@ -90,14 +90,14 @@ void Scene_History::vUpdate() {
 	int max_top_index = std::max(0, static_cast<int>(entries.size()) - visible_count);
 
 	// Handle scrolling input - directly modify top_index
-	if (Input::IsRepeated(Input::UP)) {
+	if (Input::IsRepeated(Input::UP) || Input::IsTriggered(Input::SCROLL_UP)) {
 		if (top_index > 0) {
 			top_index--;
 			// Play cursor sound effect
 			Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Cursor));
 		}
 	}
-	if (Input::IsRepeated(Input::DOWN)) {
+	if (Input::IsRepeated(Input::DOWN) || Input::IsTriggered(Input::SCROLL_DOWN)) {
 		if (top_index < max_top_index) {
 			top_index++;
 			// Play cursor sound effect
