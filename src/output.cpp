@@ -305,6 +305,10 @@ void Output::WarningStr(std::string const& warn) {
 	if (log_level < LogLevel::Warning) {
 		return;
 	}
+	// Filter out Maniac-related messages
+	if (warn.size() >= 6 && warn.substr(0, 6) == "Maniac") {
+		return;
+	}
 	WriteLog(LogLevel::Warning, warn, Color(255, 255, 0, 255));
 }
 
@@ -312,11 +316,19 @@ void Output::InfoStr(std::string const& msg) {
 	if (log_level < LogLevel::Info) {
 		return;
 	}
+	// Filter out Maniac-related messages
+	if (msg.size() >= 6 && msg.substr(0, 6) == "Maniac") {
+		return;
+	}
 	WriteLog(LogLevel::Info, msg, Color(255, 255, 255, 255));
 }
 
 void Output::DebugStr(std::string const& msg) {
 	if (log_level < LogLevel::Debug) {
+		return;
+	}
+	// Filter out Maniac-related messages
+	if (msg.size() >= 6 && msg.substr(0, 6) == "Maniac") {
 		return;
 	}
 	WriteLog(LogLevel::Debug, msg, Color(128, 128, 128, 255));
