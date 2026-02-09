@@ -874,6 +874,7 @@ void Window_Message::UpdateCursorRect() {
 
 void Window_Message::WaitForInput() {
 	if (Input::IsTriggered(Input::DECISION) ||
+			Input::IsTriggered(Input::MOUSE_LEFT) ||
 			Input::IsTriggered(Input::CANCEL)) {
 		SetPause(false);
 	}
@@ -887,7 +888,8 @@ void Window_Message::InputChoice() {
 			Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Cancel));
 			choice_result = pending_message.GetChoiceCancelType() - 1; // Cancel
 		}
-	} else if (Input::IsTriggered(Input::DECISION)) {
+	} else if (Input::IsTriggered(Input::DECISION) ||
+	           Input::IsTriggered(Input::MOUSE_LEFT)) {
 		if (!pending_message.IsChoiceEnabled(index)) {
 			Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Buzzer));
 			return;
@@ -909,7 +911,8 @@ void Window_Message::InputChoice() {
 
 void Window_Message::InputNumber() {
 	number_input_window->SetVisible(true);
-	if (Input::IsTriggered(Input::DECISION)) {
+	if (Input::IsTriggered(Input::DECISION) ||
+	    Input::IsTriggered(Input::MOUSE_LEFT)) {
 		Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Decision));
 		Main_Data::game_variables->Set(pending_message.GetNumberInputVariable(), number_input_window->GetNumber());
 		Game_Map::SetNeedRefresh(true);

@@ -143,7 +143,7 @@ void Scene_Title::vUpdate() {
 
 	command_window->Update();
 
-	if (Input::IsTriggered(Input::DECISION)) {
+	if (Input::IsTriggered(Input::DECISION) || Input::IsTriggered(Input::MOUSE_LEFT)) {
 		int index = command_window->GetIndex();
 		if (index == indices.new_game) {  // New Game
 			CommandNewGame();

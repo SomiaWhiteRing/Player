@@ -294,9 +294,18 @@ void Scene_Map::UpdateSceneCalling() {
 		}
 	}
 
-	if (call == nullptr && (Input::IsTriggered(Input::HISTORY_MENU) || Input::IsTriggered(Input::SCROLL_UP))) {
+	if (call == nullptr && Input::IsTriggered(Input::HISTORY_MENU)) {
 		// 只有在对话正在显示时才能打开历史记录
 		if (Game_Message::IsMessageActive() || Game_Message::IsMessagePending()) {
+			call = std::make_shared<Scene_History>();
+		}
+	}
+
+	// 鼠标滚轮上滚打开历史记录（只在等待输入状态下）
+	if (call == nullptr && Input::IsTriggered(Input::SCROLL_UP)) {
+		Window_Message* msgWindow = Game_Message::GetWindow();
+		if (msgWindow && msgWindow->GetPause()) {
+			// 只在等待输入状态（暂停状态）下生效
 			call = std::make_shared<Scene_History>();
 		}
 	}
