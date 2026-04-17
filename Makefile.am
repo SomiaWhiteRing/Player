@@ -120,6 +120,8 @@ libeasyrpg_player_a_SOURCES = \
 	src/fps_overlay.h \
 	src/frame.cpp \
 	src/frame.h \
+	src/movie_player.cpp \
+	src/movie_player.h \
 	src/game_actor.cpp \
 	src/game_actor.h \
 	src/game_actors.cpp \
@@ -593,6 +595,8 @@ EXTRA_DIST += \
 	src/platform/wiiu/main.h \
 	src/platform/windows/midiout_device_win32.cpp \
 	src/platform/windows/midiout_device_win32.h \
+	src/platform/windows/movie_player_dshow.cpp \
+	src/platform/windows/movie_player_dshow.h \
 	src/platform/windows/utils.cpp \
 	src/platform/windows/utils.h
 

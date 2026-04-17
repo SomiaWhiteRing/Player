@@ -761,11 +761,19 @@ bool Game_Interpreter_Map::CommandPlayMovie(lcf::rpg::EventCommand const& com) {
 	int res_x = com.parameters[3];
 	int res_y = com.parameters[4];
 
-	Output::Warning("Couldn't play movie: {}. Movie playback is not implemented (yet).", filename);
+	if (Main_Data::game_screen->ConsumeMovieFinished()) {
+		return true;
+	}
 
-	Main_Data::game_screen->PlayMovie(filename, pos_x, pos_y, res_x, res_y);
+	if (Main_Data::game_screen->IsMoviePlaying()) {
+		return false;
+	}
 
-	return true;
+	if (!Main_Data::game_screen->PlayMovie(filename, pos_x, pos_y, res_x, res_y)) {
+		return true;
+	}
+
+	return false;
 }
 
 bool Game_Interpreter_Map::CommandOpenSaveMenu(lcf::rpg::EventCommand const& com) { // code 11910

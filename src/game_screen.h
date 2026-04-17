@@ -33,6 +33,7 @@
 class Game_Battler;
 class Screen;
 class Weather;
+class MoviePlayer;
 
 class Game_Screen {
 
@@ -54,8 +55,10 @@ public:
 	void ShakeBegin(int power, int speed);
 	void ShakeEnd();
 	void SetWeatherEffect(int type, int strength);
-	void PlayMovie(std::string filename,
-		int pos_x, int pos_y, int res_x, int res_y);
+	bool PlayMovie(std::string filename,
+			int pos_x, int pos_y, int res_x, int res_y);
+	bool IsMoviePlaying() const;
+	bool ConsumeMovieFinished();
 	void Update();
 
 	/**
@@ -180,6 +183,7 @@ public:
 private:
 	std::unique_ptr<BattleAnimationMap> animation;
 	std::unique_ptr<Weather> weather;
+	std::unique_ptr<MoviePlayer> movie_player;
 
 	lcf::rpg::SaveScreen data;
 	int flash_sat;		// RPGMaker bug: this isn't saved
@@ -190,6 +194,7 @@ private:
 	int movie_pos_y;
 	int movie_res_x;
 	int movie_res_y;
+	bool movie_finished = false;
 
 protected:
 	std::vector<Particle> particles;
@@ -204,6 +209,8 @@ protected:
 	void UpdateWeather();
 	void UpdateFog(int dx, int dy);
 	void OnWeatherChanged();
+	void StopMovie(bool finished);
+	Rect GetMovieOutputRect() const;
 
 	void InitParticles(int n);
 };

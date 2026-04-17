@@ -132,6 +132,9 @@ public:
 	/** @return dimensions of the window */
 	virtual Rect GetWindowMetrics() const;
 
+	/** @return rectangle where the game image is presented inside the window */
+	virtual Rect GetPresentationRect() const;
+
 	/**
 	 * Gets client width size.
 	 *
@@ -245,6 +248,9 @@ public:
 	 */
 	virtual bool OpenURL(std::string_view path) { (void)path; return false; }
 
+	/** @return native window handle when available, otherwise nullptr */
+	virtual void* GetNativeWindowHandle() const { return nullptr; }
+
 	/** Toggles "stretch to screen width" on or off */
 	virtual void ToggleStretch() {};
 
@@ -329,6 +335,10 @@ extern std::shared_ptr<BaseUi> DisplayUi;
 
 inline Rect BaseUi::GetWindowMetrics() const {
 	return {-1, -1, -1, -1};
+}
+
+inline Rect BaseUi::GetPresentationRect() const {
+	return {0, 0, static_cast<int>(GetWidth()), static_cast<int>(GetHeight())};
 }
 
 inline bool BaseUi::IsFrameRateSynchronized() const {

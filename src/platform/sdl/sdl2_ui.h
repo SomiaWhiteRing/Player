@@ -72,6 +72,8 @@ public:
 	void vGetConfig(Game_ConfigVideo& cfg) const override;
 	bool OpenURL(std::string_view url) override;
 	Rect GetWindowMetrics() const override;
+	Rect GetPresentationRect() const override;
+	void* GetNativeWindowHandle() const override;
 	bool HandleErrorOutput(const std::string &message) override;
 
 #ifdef SUPPORT_AUDIO

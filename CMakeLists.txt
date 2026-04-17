@@ -144,6 +144,8 @@ add_library(${PROJECT_NAME} OBJECT
 	src/fps_overlay.h
 	src/frame.cpp
 	src/frame.h
+	src/movie_player.cpp
+	src/movie_player.h
 	src/game_actor.cpp
 	src/game_actor.h
 	src/game_actors.cpp
@@ -849,12 +851,16 @@ if(ANDROID)
 endif()
 
 if(WIN32)
+	target_compile_definitions(${PROJECT_NAME} PUBLIC SUPPORT_MOVIES=1 HAVE_DIRECTSHOW=1)
 	target_sources(${PROJECT_NAME} PRIVATE
 		src/registry.cpp
 		src/platform/windows/utils.cpp
 		src/platform/windows/utils.h
+		src/platform/windows/movie_player_dshow.cpp
+		src/platform/windows/movie_player_dshow.h
 		src/platform/windows/midiout_device_win32.cpp
 		src/platform/windows/midiout_device_win32.h)
+	target_link_libraries(${PROJECT_NAME} ole32 strmiids)
 endif()
 
 if(APPLE)

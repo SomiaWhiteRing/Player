@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 #include <sstream>
+#include <array>
 
 #ifdef _WIN32
 #  include <windows.h>
@@ -55,7 +56,7 @@
 
 namespace {
 #ifdef SUPPORT_MOVIES
-	auto MOVIE_TYPES = { ".avi", ".mpg" };
+	constexpr std::array<std::string_view, 2> MOVIE_TYPES = { ".avi", ".mpg" };
 #endif
 
 	std::shared_ptr<Filesystem> root_fs;
@@ -454,6 +455,16 @@ std::string FileFinder::FindMusic(std::string_view name) {
 std::string FileFinder::FindSound(std::string_view name) {
 	DirectoryTree::Args args = { MakePath("Sound", name), SOUND_TYPES, 1, false };
 	return find_generic(args);
+}
+
+std::string FileFinder::FindMovie(std::string_view name) {
+#ifdef SUPPORT_MOVIES
+	DirectoryTree::Args args = { MakePath("Movie", name), MOVIE_TYPES, 1, false };
+	return find_generic(args);
+#else
+	(void)name;
+	return {};
+#endif
 }
 
 std::string FileFinder::FindFont(std::string_view name) {

@@ -35,12 +35,16 @@
 #include "flash.h"
 #include "shake.h"
 #include "rand.h"
+#include "baseui.h"
+#include "filefinder.h"
+#include "movie_player.h"
 
 Game_Screen::Game_Screen()
 {
 }
 
 Game_Screen::~Game_Screen() {
+	StopMovie(false);
 }
 
 void Game_Screen::SetSaveData(lcf::rpg::SaveScreen screen)
@@ -86,6 +90,8 @@ void Game_Screen::OnMapChange() {
 	movie_pos_y = 0;
 	movie_res_x = 0;
 	movie_res_y = 0;
+	movie_finished = false;
+	StopMovie(false);
 
 	data.battleanim_active = false;
 	animation.reset();
@@ -171,13 +177,62 @@ void Game_Screen::SetWeatherEffect(int type, int strength) {
 	}
 }
 
-void Game_Screen::PlayMovie(std::string filename,
+bool Game_Screen::PlayMovie(std::string filename,
 							int pos_x, int pos_y, int res_x, int res_y) {
+	if (IsMoviePlaying()) {
+		return true;
+	}
+
 	movie_filename = std::move(filename);
 	movie_pos_x = pos_x;
 	movie_pos_y = pos_y;
 	movie_res_x = res_x;
 	movie_res_y = res_y;
+	movie_finished = false;
+
+	auto movie_path = FileFinder::FindMovie(movie_filename);
+	if (movie_path.empty()) {
+		Output::Warning("Couldn't play movie: {}. Movie file not found.", movie_filename);
+		movie_filename.clear();
+		return false;
+	}
+
+	auto full_path = FileFinder::MakePath(FileFinder::GetFullFilesystemPath(FileFinder::Game()), movie_path);
+
+	if (!movie_player) {
+		movie_player = MoviePlayer::Create();
+	}
+
+	if (!movie_player) {
+		Output::Warning("Couldn't play movie: {}. Movie playback backend is unavailable.", movie_filename);
+		movie_filename.clear();
+		return false;
+	}
+
+	std::string error_message;
+	if (!movie_player->Open(full_path, error_message)) {
+		Output::Warning("Couldn't play movie: {}. {}", movie_filename, error_message);
+		StopMovie(false);
+		return false;
+	}
+
+	Output::Debug("Playing movie: {} pos=({}, {}) size=({}x{}) source={}",
+		movie_filename, movie_pos_x, movie_pos_y, movie_res_x, movie_res_y, movie_path);
+	UpdateMovie();
+	return movie_player->IsPlaying();
+}
+
+bool Game_Screen::IsMoviePlaying() const {
+	return movie_player && movie_player->IsPlaying();
+}
+
+bool Game_Screen::ConsumeMovieFinished() {
+	if (!movie_finished) {
+		return false;
+	}
+
+	movie_finished = false;
+	return true;
 }
 
 static double interpolate(double d, double x0, double x1)
@@ -326,9 +381,63 @@ void Game_Screen::UpdateScreenEffects() {
 }
 
 void Game_Screen::UpdateMovie() {
-	if (!movie_filename.empty()) {
-		/* update movie */
+	if (movie_player) {
+		movie_player->Update(GetMovieOutputRect());
+		if (!movie_player->IsPlaying()) {
+			StopMovie(true);
+		}
 	}
+}
+
+void Game_Screen::StopMovie(bool finished) {
+	if (movie_player) {
+		movie_player->Stop();
+		movie_player.reset();
+	}
+
+	movie_finished = finished;
+	movie_filename.clear();
+}
+
+Rect Game_Screen::GetMovieOutputRect() const {
+	int width = movie_res_x;
+	int height = movie_res_y;
+
+	if (movie_player) {
+		if (width <= 0) {
+			width = movie_player->GetNativeWidth();
+		}
+		if (height <= 0) {
+			height = movie_player->GetNativeHeight();
+		}
+	}
+
+	if (width <= 0) {
+		width = Player::screen_width;
+	}
+	if (height <= 0) {
+		height = Player::screen_height;
+	}
+
+	Rect movie_rect{movie_pos_x, movie_pos_y, width, height};
+	if (!DisplayUi) {
+		return movie_rect;
+	}
+
+	auto canvas = DisplayUi->GetPresentationRect();
+	auto scale = [](int value, int src, int dst) {
+		if (src == 0) {
+			return value;
+		}
+		return static_cast<int>(std::llround(static_cast<double>(value) * dst / src));
+	};
+
+	return Rect{
+		canvas.x + scale(movie_rect.x, static_cast<int>(DisplayUi->GetWidth()), canvas.width),
+		canvas.y + scale(movie_rect.y, static_cast<int>(DisplayUi->GetHeight()), canvas.height),
+		std::max(scale(movie_rect.width, static_cast<int>(DisplayUi->GetWidth()), canvas.width), 1),
+		std::max(scale(movie_rect.height, static_cast<int>(DisplayUi->GetHeight()), canvas.height), 1)
+	};
 }
 
 void Game_Screen::UpdateWeather() {

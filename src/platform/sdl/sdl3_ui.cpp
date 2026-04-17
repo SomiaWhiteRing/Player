@@ -658,6 +658,29 @@ bool Sdl3Ui::HandleErrorOutput(const std::string &message) {
 	return true;
 }
 
+Rect Sdl3Ui::GetPresentationRect() const {
+	if (viewport.w > 0 && viewport.h > 0) {
+		return {viewport.x, viewport.y, viewport.w, viewport.h};
+	}
+
+	if (window.width > 0 && window.height > 0) {
+		return {0, 0, window.width, window.height};
+	}
+
+	return BaseUi::GetPresentationRect();
+}
+
+void* Sdl3Ui::GetNativeWindowHandle() const {
+#ifdef _WIN32
+	if (!sdl_window) {
+		return nullptr;
+	}
+	return GetWindowHandle(sdl_window);
+#else
+	return nullptr;
+#endif
+}
+
 void Sdl3Ui::ProcessEvent(SDL_Event &evnt) {
 	switch (evnt.type) {
 		case SDL_EVENT_QUIT:
