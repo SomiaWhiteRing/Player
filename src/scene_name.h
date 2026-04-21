@@ -18,7 +18,9 @@
 #ifndef EP_SCENE_NAME_H
 #define EP_SCENE_NAME_H
 
+#include "name_input_candidate.h"
 #include "scene.h"
+#include "window_command.h"
 #include "window_name.h"
 #include "window_face.h"
 #include "window_keyboard.h"
@@ -32,7 +34,7 @@ public:
 	/**
 	 * Constructor.
 	 */
-	Scene_Name(Game_Actor& actor, int charset, bool use_default_name);
+	Scene_Name(Game_Actor& actor, int charset, bool use_default_name, std::vector<NameInputCandidate> candidates = {});
 
 	void Start() override;
 	void vUpdate() override;
@@ -43,9 +45,27 @@ protected:
 	bool use_default_name = false;
 
 private:
+	enum class Mode {
+		Choice,
+		Input,
+	};
+
+	void CreateFaceWindow();
+	void CreateNameWindow();
+	void SetupLayouts();
+	void CreateKeyboardWindow();
+	void CreateChoiceWindow();
+	void EnterChoiceMode();
+	void EnterKeyboardInputMode();
+	std::vector<std::string> GetChoiceLabels() const;
+
 	Game_Actor& actor;
+	Mode mode = Mode::Input;
+	const char* keyboard_done = Window_Keyboard::DONE;
+	std::vector<NameInputCandidate> candidates;
 
 	std::unique_ptr<Window_Keyboard> kbd_window;
+	std::unique_ptr<Window_Command> choice_window;
 	std::unique_ptr<Window_Name> name_window;
 	std::unique_ptr<Window_Face> face_window;
 };

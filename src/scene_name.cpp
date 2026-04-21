@@ -24,62 +24,97 @@
 #include "player.h"
 #include "output.h"
 
-Scene_Name::Scene_Name(Game_Actor& actor, int charset, bool use_default_name)
-	: layout_index(charset), use_default_name(use_default_name), actor(actor)
+namespace {
+	constexpr int kMarginX = 32;
+	constexpr int kMarginY = 8;
+	constexpr int kWindowFaceWidth = 64;
+	constexpr int kWindowFaceHeight = 64;
+	constexpr int kWindowNameWidth = 192;
+	constexpr int kWindowNameHeight = 32;
+	constexpr int kWindowKeyboardWidth = 256;
+	constexpr int kWindowKeyboardHeight = 160;
+	constexpr int kWindowChoiceVisibleItems = 9;
+	const char kManualInputLabel[] = "\xE4\xB8\xBB\xE5\x8A\xA8\xE8\xBE\x93\xE5\x85\xA5";
+}
+
+Scene_Name::Scene_Name(Game_Actor& actor, int charset, bool use_default_name, std::vector<NameInputCandidate> candidates)
+	: layout_index(charset), use_default_name(use_default_name), actor(actor), candidates(std::move(candidates))
 {
 	Scene::type = Scene::Name;
 }
 
 void Scene_Name::Start() {
-	// Create the windows
-	int margin_x = 32;
-	int margin_y = 8;
-	int window_face_width = 64;
-	int window_face_height = 64;
-	int window_name_width = 192;
-	int window_name_height = 32;
-	int window_keyboard_width = 256;
-	int window_keyboard_height = 160;
+	CreateFaceWindow();
+	CreateNameWindow();
+	SetupLayouts();
 
-	face_window.reset(new Window_Face(Player::menu_offset_x + margin_x, Player::menu_offset_y + margin_y, window_face_width, window_face_height));
+	if (candidates.empty()) {
+		EnterKeyboardInputMode();
+	} else {
+		EnterChoiceMode();
+	}
+}
+
+void Scene_Name::CreateFaceWindow() {
+	face_window.reset(new Window_Face(Player::menu_offset_x + kMarginX, Player::menu_offset_y + kMarginY, kWindowFaceWidth, kWindowFaceHeight));
 	face_window->Set(actor);
 	face_window->Refresh();
+}
 
-	name_window.reset(new Window_Name(Player::menu_offset_x + window_face_width + margin_x, Player::menu_offset_y + margin_y + 32, window_name_width, window_name_height));
+void Scene_Name::CreateNameWindow() {
+	name_window.reset(new Window_Name(Player::menu_offset_x + kWindowFaceWidth + kMarginX, Player::menu_offset_y + kMarginY + 32, kWindowNameWidth, kWindowNameHeight));
 	name_window->Set(use_default_name ? ToString(actor.GetName()) : "");
-	name_window->Refresh();
+}
 
-	const char* done = Window_Keyboard::DONE;
+void Scene_Name::SetupLayouts() {
+	layouts.clear();
+	keyboard_done = Window_Keyboard::DONE;
 	// Japanese pages
 	if (Player::IsCP932()) {
 		layouts.push_back(Window_Keyboard::Hiragana);
 		layouts.push_back(Window_Keyboard::Katakana);
-		done = Window_Keyboard::DONE_JP;
+		keyboard_done = Window_Keyboard::DONE_JP;
 	// Korean pages
 	} else if (Player::IsCP949()) {
 		layouts.push_back(Window_Keyboard::Hangul1);
 		layouts.push_back(Window_Keyboard::Hangul2);
-		done = Window_Keyboard::DONE_KO;
+		keyboard_done = Window_Keyboard::DONE_KO;
 	// Simp. Chinese pages
 	} else if (Player::IsCP936()) {
 		layouts.push_back(Window_Keyboard::ZhCn1);
 		layouts.push_back(Window_Keyboard::ZhCn2);
-		done = Window_Keyboard::DONE_ZH_CN;
+		keyboard_done = Window_Keyboard::DONE_ZH_CN;
 	// Trad. Chinese pages
 	} else if (Player::IsBig5()) {
 		layouts.push_back(Window_Keyboard::ZhTw1);
 		layouts.push_back(Window_Keyboard::ZhTw2);
-		done = Window_Keyboard::DONE_ZH_TW;
+		keyboard_done = Window_Keyboard::DONE_ZH_TW;
 	// Cyrillic page (we assume it's Russian since we have no way to detect Serbian etc.)
 	} else if (Player::IsCP1251()) {
 		layouts.push_back(Window_Keyboard::RuCyrl);
-		done = Window_Keyboard::DONE_RU;
+		keyboard_done = Window_Keyboard::DONE_RU;
 	}
 
 	// Letter and symbol pages are used everywhere
 	layouts.push_back(Window_Keyboard::Letter);
 	layouts.push_back(Window_Keyboard::Symbol);
-	kbd_window.reset(new Window_Keyboard(Player::menu_offset_x + margin_x, Player::menu_offset_y + window_face_height + margin_y, window_keyboard_width, window_keyboard_height, done));
+}
+
+void Scene_Name::CreateKeyboardWindow() {
+	if (kbd_window) {
+		return;
+	}
+
+	if (layout_index < 0 || layout_index >= static_cast<int>(layouts.size())) {
+		layout_index = 0;
+	}
+
+	kbd_window.reset(new Window_Keyboard(
+		Player::menu_offset_x + kMarginX,
+		Player::menu_offset_y + kWindowFaceHeight + kMarginY,
+		kWindowKeyboardWidth,
+		kWindowKeyboardHeight,
+		keyboard_done));
 
 	auto next_index = layout_index + 1;
 	if (next_index >= static_cast<int>(layouts.size())) {
@@ -91,7 +126,61 @@ void Scene_Name::Start() {
 	kbd_window->UpdateCursorRect();
 }
 
+std::vector<std::string> Scene_Name::GetChoiceLabels() const {
+	std::vector<std::string> labels;
+	labels.reserve(candidates.size() + 1);
+
+	for (const auto& candidate: candidates) {
+		labels.push_back(candidate.label);
+	}
+
+	labels.emplace_back(kManualInputLabel);
+	return labels;
+}
+
+void Scene_Name::CreateChoiceWindow() {
+	choice_window.reset(new Window_Command(GetChoiceLabels(), kWindowKeyboardWidth, kWindowChoiceVisibleItems));
+	choice_window->SetX(Player::menu_offset_x + kMarginX);
+	choice_window->SetY(Player::menu_offset_y + kWindowFaceHeight + kMarginY);
+	choice_window->UpdateCursorRect();
+}
+
+void Scene_Name::EnterChoiceMode() {
+	mode = Mode::Choice;
+	kbd_window.reset();
+	name_window->SetActive(false);
+	CreateChoiceWindow();
+	choice_window->SetActive(true);
+}
+
+void Scene_Name::EnterKeyboardInputMode() {
+	mode = Mode::Input;
+	choice_window.reset();
+	name_window->SetActive(true);
+	CreateKeyboardWindow();
+	kbd_window->SetActive(true);
+}
+
 void Scene_Name::vUpdate() {
+	if (mode == Mode::Choice) {
+		choice_window->Update();
+
+		if (Input::IsTriggered(Input::CANCEL)) {
+			Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Buzzer));
+		} else if (Input::IsTriggered(Input::DECISION)) {
+			Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Decision));
+			auto index = choice_window->GetIndex();
+
+			if (index == static_cast<int>(candidates.size())) {
+				EnterKeyboardInputMode();
+			} else if (index >= 0 && index < static_cast<int>(candidates.size())) {
+				actor.SetName(candidates[index].value);
+				Scene::Pop();
+			}
+		}
+		return;
+	}
+
 	kbd_window->Update();
 	name_window->Update();
 

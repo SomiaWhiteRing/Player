@@ -170,6 +170,8 @@ libeasyrpg_player_a_SOURCES = \
 	src/game_message.h \
 	src/game_message_terms.cpp \
 	src/game_message_terms.h \
+	src/name_input_candidate.cpp \
+	src/name_input_candidate.h \
 	src/game_party.cpp \
 	src/game_party.h \
 	src/game_party_base.cpp \
@@ -765,6 +767,7 @@ test_runner_SOURCES = \
 	tests/game_player_pan.cpp \
 	tests/game_player_savecount.cpp \
 	tests/json.cpp \
+	tests/name_input_candidate.cpp \
 	tests/mock_game.cpp \
 	tests/mock_game.h \
 	tests/move_route.cpp \

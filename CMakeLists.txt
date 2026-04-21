@@ -194,6 +194,8 @@ add_library(${PROJECT_NAME} OBJECT
 	src/game_message.h
 	src/message_history.cpp
 	src/message_history.h
+	src/name_input_candidate.cpp
+	src/name_input_candidate.h
 	src/game_message_terms.cpp
 	src/game_message_terms.h
 	src/game_party_base.cpp
