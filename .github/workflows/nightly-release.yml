@@ -1,0 +1,163 @@
+name: Nightly Release
+
+on:
+  push:
+    branches:
+      - my-feature-stable
+  workflow_dispatch:
+    inputs:
+      git-ref:
+        description: Git ref to release (optional)
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nightly-release
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: pwsh
+
+env:
+  TRACKED_BRANCH: my-feature-stable
+  NIGHTLY_TAG: nightly
+  RELEASE_TITLE: Nightly
+  ARCHIVE_NAME: EasyRPG-Player-Kai-nightly-windows-x64.zip
+  BUILD_DIR: build/windows-x64-vs2022-release
+  BUILDSCRIPTS_DIR: ${{ github.workspace }}\external\buildscripts
+  VCPKG_TRIPLET: x64-windows-static
+
+jobs:
+  publish:
+    name: Build And Publish Nightly
+    runs-on: windows-2022
+
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.git-ref == ''
+        with:
+          fetch-depth: 0
+
+      - name: Clone repository (custom ref)
+        uses: actions/checkout@v4
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.git-ref != ''
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.git-ref }}
+
+      - name: Capture metadata
+        id: meta
+        run: |
+          "commit_sha=$(git rev-parse HEAD)" >> $env:GITHUB_OUTPUT
+          "commit_short=$(git rev-parse --short HEAD)" >> $env:GITHUB_OUTPUT
+          "commit_subject=$(git log -1 --pretty=%s)" >> $env:GITHUB_OUTPUT
+
+      - name: Clone EasyRPG buildscripts
+        run: |
+          git clone --depth 1 https://github.com/EasyRPG/buildscripts.git $env:BUILDSCRIPTS_DIR
+
+      - name: Bootstrap Windows dependencies
+        run: |
+          Push-Location "$env:BUILDSCRIPTS_DIR\windows"
+          cmd /c helper\prepare.cmd
+
+          .\vcpkg\vcpkg.exe install --triplet $env:VCPKG_TRIPLET --recurse `
+            libpng[core] expat[core] pixman[core] freetype[core,zlib] harfbuzz[freetype] `
+            libvorbis[core] libsndfile[core] wildmidi[core] libxmp[core] `
+            speexdsp[core] mpg123[core] opusfile[core] fluidsynth-easyrpg[core] `
+            inih[cpp] lhasa-easyrpg[core] `
+            sdl2[core] icu-easyrpg[core] nlohmann-json[core] fmt[core]
+          Pop-Location
+
+      - name: Configure
+        run: |
+          $versionSuffix = "(nightly, $(Get-Date -AsUTC -Format 'yyyy-MM-dd'))"
+          cmake -S . -B $env:BUILD_DIR `
+            -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_TOOLCHAIN_FILE="$env:BUILDSCRIPTS_DIR\windows\vcpkg\scripts\buildsystems\vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=$env:VCPKG_TRIPLET `
+            -DPLAYER_BUILD_LIBLCF=ON `
+            -DPLAYER_VERSION_APPEND="$versionSuffix"
+
+      - name: Build
+        run: cmake --build $env:BUILD_DIR --config Release --parallel
+
+      - name: Run tests
+        run: cmake --build $env:BUILD_DIR --target check --config Release --parallel
+
+      - name: Package nightly artifact
+        id: package
+        run: |
+          $stageDir = Join-Path $env:RUNNER_TEMP "nightly-stage"
+          $artifactDir = Join-Path $env:RUNNER_TEMP "nightly-artifacts"
+          $archivePath = Join-Path $artifactDir $env:ARCHIVE_NAME
+          $hashPath = "$archivePath.sha256"
+
+          Remove-Item $stageDir, $artifactDir -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $stageDir, $artifactDir | Out-Null
+
+          cmake --install $env:BUILD_DIR --config Release --prefix $stageDir
+
+          Compress-Archive -Path (Join-Path $stageDir '*') -DestinationPath $archivePath -Force
+          $hash = (Get-FileHash -Algorithm SHA256 $archivePath).Hash.ToLowerInvariant()
+          "$hash  $($env:ARCHIVE_NAME)" | Set-Content -Path $hashPath -NoNewline
+
+          "artifact_dir=$artifactDir" >> $env:GITHUB_OUTPUT
+
+      - name: Move nightly tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f $env:NIGHTLY_TAG ${{ steps.meta.outputs.commit_sha }}
+          git push origin "refs/tags/$env:NIGHTLY_TAG" --force
+
+      - name: Prepare release notes
+        id: notes
+        run: |
+          $notesFile = Join-Path $env:RUNNER_TEMP "nightly-release-notes.md"
+          $builtAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+          $runUrl = "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          $commitUrl = "https://github.com/${{ github.repository }}/commit/${{ steps.meta.outputs.commit_sha }}"
+
+          @"
+          Automated pre-release updated from branch $env:TRACKED_BRANCH.
+
+          - Commit: [${{ steps.meta.outputs.commit_short }}]($commitUrl)
+          - Message: ${{ steps.meta.outputs.commit_subject }}
+          - Built at: $builtAt
+          - Workflow run: $runUrl
+          - Artifact: $env:ARCHIVE_NAME built for Windows x64
+          "@ | Set-Content -Path $notesFile
+
+          "notes_file=$notesFile" >> $env:GITHUB_OUTPUT
+
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view $env:NIGHTLY_TAG *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release edit $env:NIGHTLY_TAG `
+              --title $env:RELEASE_TITLE `
+              --notes-file "${{ steps.notes.outputs.notes_file }}" `
+              --prerelease
+          } else {
+            gh release create $env:NIGHTLY_TAG `
+              --title $env:RELEASE_TITLE `
+              --notes-file "${{ steps.notes.outputs.notes_file }}" `
+              --prerelease
+          }
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload $env:NIGHTLY_TAG `
+            "${{ steps.package.outputs.artifact_dir }}\$env:ARCHIVE_NAME" `
+            "${{ steps.package.outputs.artifact_dir }}\$env:ARCHIVE_NAME.sha256" `
+            --clobber
