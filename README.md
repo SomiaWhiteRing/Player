@@ -30,3 +30,24 @@ EasyRPG Player 的苍旻白轮个人魔改造版。基于 EasyRPG Player 0.8.1.1
 当RPG Maker事件使用“角色改名 + 立刻判断名字”的方式做输入式解谜时，会在进入输入前自动弹出候选列表。  
 可以直接从答案中选择，或选择最后一项`主动输入`回退到原本的键盘输入界面。  
 适合汉化后默认选字式输入法难以覆盖答案名称的场景。
+
+### 兼容 `ChangePartyMember(actor 0)`
+
+部分 RM2000 游戏会在“重建队伍”时先批量执行“移除队伍成员”，并且从 `actor 0` 开始。  
+原版 `RPG_RT` 会静默忽略这条无效命令；本分支现在也按同样方式处理，不再在顶部弹出
+`ChangePartyMember: Invalid actor ID 0` 警告。
+
+已确认这能兼容 `もしもコレクション7` 一类使用该写法的工程。
+
+## 本地打包
+
+当前仓库在 Windows x64 下推荐使用：
+
+```powershell
+cmake --build build/windows-x64-vs2022-release --config Release --parallel
+cmake --build build/windows-x64-vs2022-release --target check --config Release --parallel
+cmake --install build/windows-x64-vs2022-release --config Release --prefix build/package/stage
+Compress-Archive -Path build/package/stage/* -DestinationPath build/artifacts/EasyRPG-Player-Kai-local-windows-x64.zip -Force
+```
+
+打包后的 zip 可直接分发，默认输出到 `build/artifacts/`。

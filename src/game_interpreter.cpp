@@ -1622,6 +1622,12 @@ bool Game_Interpreter::CommandChangePartyMember(lcf::rpg::EventCommand const& co
 	Game_Actor* actor;
 	int id = ValueOrVariable(com.parameters[1], com.parameters[2]);
 
+	// Some RM2k games clear or rebuild the party by issuing a remove-member
+	// sequence that starts at actor ID 0. RPG_RT ignores actor 0 silently.
+	if (id == 0) {
+		return true;
+	}
+
 	actor = Main_Data::game_actors->GetActor(id);
 
 	if (!actor) {
