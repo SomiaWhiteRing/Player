@@ -57,6 +57,28 @@ jobs:
           "commit_short=$(git rev-parse --short HEAD)" >> $env:GITHUB_OUTPUT
           "commit_subject=$(git log -1 --pretty=%s)" >> $env:GITHUB_OUTPUT
 
+      - name: Resolve CMake
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+          $cmakePath = ""
+
+          if (Test-Path $vswhere) {
+            $vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.CMake.Project -property installationPath
+            if ($vsPath) {
+              $candidate = Join-Path $vsPath "Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+              if (Test-Path $candidate) {
+                $cmakePath = $candidate
+              }
+            }
+          }
+
+          if (-not $cmakePath) {
+            $cmakePath = (Get-Command cmake.exe -ErrorAction Stop).Source
+          }
+
+          & $cmakePath --version
+          "CMAKE_EXE=$cmakePath" >> $env:GITHUB_ENV
+
       - name: Restore EasyRPG Windows toolchain cache
         id: toolchain-cache
         uses: actions/cache@v4
@@ -95,25 +117,53 @@ jobs:
           if (-not (Test-Path $tripletDir)) {
             throw "Missing vcpkg triplet directory: $tripletDir"
           }
+          if (-not (Test-Path (Join-Path $tripletDir "share\sdl2\SDL2Config.cmake"))) {
+            throw "Missing SDL2 package in vcpkg triplet: $tripletDir"
+          }
 
           Get-ChildItem (Join-Path $env:BUILDSCRIPTS_DIR "windows\vcpkg\installed") -Directory |
             Select-Object -ExpandProperty Name
+
+      - name: Clone liblcf
+        run: |
+          $libDir = Join-Path $env:GITHUB_WORKSPACE "lib"
+          $liblcfDir = Join-Path $libDir "liblcf"
+
+          New-Item -ItemType Directory -Force -Path $libDir | Out-Null
+          Remove-Item $liblcfDir -Recurse -Force -ErrorAction SilentlyContinue
+          git clone --depth 1 --branch master https://github.com/EasyRPG/liblcf.git $liblcfDir
 
       - name: Configure
         run: |
           $versionSuffix = "(nightly, $(Get-Date -AsUTC -Format 'yyyy-MM-dd'))"
           $versionArg = "-DPLAYER_VERSION_APPEND=$versionSuffix"
-          cmake -S . -B $env:BUILD_DIR `
+          $tripletArg = "-DVCPKG_TARGET_TRIPLET=$($env:VCPKG_TRIPLET)"
+          $configureOutput = & $env:CMAKE_EXE -S . -B $env:BUILD_DIR `
             -G "Visual Studio 17 2022" -A x64 `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_TOOLCHAIN_FILE="$env:BUILDSCRIPTS_DIR\windows\vcpkg\scripts\buildsystems\vcpkg.cmake" `
-            -DVCPKG_TARGET_TRIPLET=$env:VCPKG_TRIPLET `
+            $tripletArg `
             -DPLAYER_BUILD_LIBLCF=ON `
             -DPLAYER_ENABLE_TESTS=OFF `
-            $versionArg
+            $versionArg 2>&1
+          $configureExit = $LASTEXITCODE
+
+          $configureOutput | ForEach-Object { $_ }
+
+          if ($configureExit -ne 0) {
+            Get-ChildItem $env:BUILD_DIR -Recurse -Include CMakeOutput.log,CMakeError.log -ErrorAction SilentlyContinue |
+              ForEach-Object {
+                Write-Host "::group::$($_.FullName)"
+                Get-Content $_.FullName -ErrorAction SilentlyContinue
+                Write-Host "::endgroup::"
+              }
+
+            exit $configureExit
+          }
 
       - name: Build
-        run: cmake --build $env:BUILD_DIR --config Release --parallel
+        run: |
+          & $env:CMAKE_EXE --build $env:BUILD_DIR --config Release --parallel
 
       - name: Verify executable
         run: |
