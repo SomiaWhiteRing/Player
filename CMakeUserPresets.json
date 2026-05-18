@@ -1,0 +1,58 @@
+{
+	"version": 4,
+	"configurePresets": [
+		{
+			"name": "windows-x64-vs2022-local-base",
+			"displayName": "Windows (x64) using Visual Studio 2022 (local vcpkg)",
+			"hidden": true,
+			"inherits": "windows-x64-vs2022-parent",
+			"cacheVariables": {
+				"VCPKG_TARGET_TRIPLET": "x64-windows",
+				"VCPKG_CRT_LINKAGE": "dynamic",
+				"LIBLCF_WITH_ICU": "OFF",
+				"ZLIB_INCLUDE_DIR": "C:/vcpkg/installed/x64-windows/include",
+				"ZLIB_LIBRARY_RELEASE": "C:/vcpkg/installed/x64-windows/lib/zlib.lib",
+				"ZLIB_LIBRARY_DEBUG": "C:/vcpkg/installed/x64-windows/debug/lib/zlibd.lib",
+				"PNG_PNG_INCLUDE_DIR": "C:/vcpkg/installed/x64-windows/include",
+				"PNG_LIBRARY_RELEASE": "C:/vcpkg/installed/x64-windows/lib/libpng16.lib",
+				"PNG_LIBRARY_DEBUG": "C:/vcpkg/installed/x64-windows/debug/lib/libpng16d.lib"
+			}
+		},
+		{
+			"name": "windows-x64-vs2022-debug-local",
+			"displayName": "Windows (x64) using Visual Studio 2022 (Debug, local vcpkg)",
+			"inherits": [
+				"windows-x64-vs2022-local-base",
+				"type-debug"
+			]
+		},
+		{
+			"name": "windows-x64-vs2022-release-local",
+			"displayName": "Windows (x64) using Visual Studio 2022 (Release, static buildscripts)",
+			"inherits": [
+				"windows-x64-vs2022-parent",
+				"type-release"
+			],
+			"toolchainFile": "C:/buildscripts/windows/vcpkg/scripts/buildsystems/vcpkg.cmake",
+			"cacheVariables": {
+				"VCPKG_TARGET_TRIPLET": "x64-windows-static",
+				"PLAYER_BUILD_LIBLCF": "ON",
+				"GIT_EXECUTABLE": "C:/Program Files/Git/cmd/git.exe",
+				"GIT_FOUND": "TRUE",
+				"Git_FOUND": "TRUE"
+			}
+		}
+	],
+	"buildPresets": [
+		{
+			"name": "windows-x64-vs2022-debug-local",
+			"configurePreset": "windows-x64-vs2022-debug-local",
+			"configuration": "Debug"
+		},
+		{
+			"name": "windows-x64-vs2022-release-local",
+			"configurePreset": "windows-x64-vs2022-release-local",
+			"configuration": "Release"
+		}
+	]
+}

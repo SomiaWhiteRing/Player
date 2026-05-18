@@ -231,8 +231,9 @@ void Window_Message::StartMessageProcessing(PendingMessage pm) {
 
 	InsertNewPage();
 
-	// Capture message for history when it appears
-	CaptureMessageForHistory();
+	if (Player::player_config.extra_message_history.Get()) {
+		CaptureMessageForHistory();
+	}
 }
 
 void Window_Message::OnFinishPage() {
@@ -873,8 +874,11 @@ void Window_Message::UpdateCursorRect() {
 }
 
 void Window_Message::WaitForInput() {
+	const bool mouse_decision = Player::player_config.extra_mouse_support.Get()
+		&& (Input::IsTriggered(Input::MOUSE_LEFT) || Input::IsTriggered(Input::SCROLL_DOWN));
+
 	if (Input::IsTriggered(Input::DECISION) ||
-			Input::IsTriggered(Input::MOUSE_LEFT) ||
+			mouse_decision ||
 			Input::IsTriggered(Input::CANCEL)) {
 		SetPause(false);
 	}
@@ -889,7 +893,7 @@ void Window_Message::InputChoice() {
 			choice_result = pending_message.GetChoiceCancelType() - 1; // Cancel
 		}
 	} else if (Input::IsTriggered(Input::DECISION) ||
-	           Input::IsTriggered(Input::MOUSE_LEFT)) {
+	           (Player::player_config.extra_mouse_support.Get() && Input::IsTriggered(Input::MOUSE_LEFT))) {
 		if (!pending_message.IsChoiceEnabled(index)) {
 			Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Buzzer));
 			return;
@@ -911,8 +915,9 @@ void Window_Message::InputChoice() {
 
 void Window_Message::InputNumber() {
 	number_input_window->SetVisible(true);
+
 	if (Input::IsTriggered(Input::DECISION) ||
-	    Input::IsTriggered(Input::MOUSE_LEFT)) {
+	    (Player::player_config.extra_mouse_support.Get() && Input::IsTriggered(Input::MOUSE_LEFT))) {
 		Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Decision));
 		Main_Data::game_variables->Set(pending_message.GetNumberInputVariable(), number_input_window->GetNumber());
 		Game_Map::SetNeedRefresh(true);

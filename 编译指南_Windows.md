@@ -6,18 +6,20 @@
 
 - **操作系统**: Windows
 - **编译器**: Visual Studio 2022 Community
-- **CMake 版本**: 4.2.0
-- **依赖库来源**: buildscripts 预编译库
+- **CMake 版本**: Visual Studio 2022 附带的 CMake 3.31.6
+- **依赖库来源**: buildscripts 预编译库用于 Release，本地 vcpkg 用于 Debug
 
 ## 目录结构
 
 ```
 C:\Users\旻\Documents\GitHub\
 ├── Player\              # EasyRPG Player 源码
-├── liblcf\             # liblcf 库源码（可选，Player 会自动克隆）
-└── buildscripts\       # 构建脚本和预编译依赖库
-    └── windows\
-        └── vcpkg\      # 预编译的依赖库
+├── buildscripts\        # EasyRPG 官方依赖构建脚本和预编译库
+└── vcpkg\              # 本地 vcpkg
+
+C:\Player               # 指向 Player 的 junction，用于规避 CMake/VS 的中文路径问题
+C:\buildscripts         # 指向 buildscripts 的 junction，用于 Release 单文件构建
+C:\vcpkg                # 指向本地 vcpkg 的 junction
 ```
 
 ## 前提条件
@@ -28,50 +30,73 @@ C:\Users\旻\Documents\GitHub\
    - 包含 C++ 桌面开发工作负载
    - 已安装路径：`C:\Program Files\Microsoft Visual Studio\2022\Community`
 
-2. **CMake 4.2.0**
-   - 已添加到系统 PATH
+2. **Visual Studio 附带的 CMake**
+   - 推荐使用：
+     `C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe`
+   - 系统 PATH 中的 CMake 4.2.0-rc1 在当前中文用户名路径下可能异常退出，不建议用于本仓库
 
 3. **Git**
    - 用于克隆 liblcf 库
 
-4. **预编译依赖库**
-   - 位置：`C:\Users\旻\Documents\GitHub\buildscripts\windows\vcpkg`
-   - 包含所有必需的第三方库（SDL2, PNG, fmt, Pixman 等）
+4. **buildscripts 预编译依赖库**
+   - 实际位置：`C:\Users\旻\Documents\GitHub\buildscripts`
+   - 推荐 junction：`C:\buildscripts`
+   - Release preset 使用 `C:\buildscripts\windows\vcpkg`
+   - 当前发布 triplet：`x64-windows-static`
+
+5. **本地 vcpkg 依赖库**
+   - 实际位置：`C:\Users\旻\Documents\GitHub\vcpkg`
+   - 推荐 junction：`C:\vcpkg`
+   - 当前使用 triplet：`x64-windows`
+   - Debug preset 会显式使用动态 CRT，以匹配 `x64-windows` 依赖库
 
 ## 编译步骤
 
 ### 1. 配置编译环境
 
-打开命令提示符（CMD）或 PowerShell，导航到 Player 目录：
+打开 PowerShell，导航到 ASCII 路径的 Player junction：
 
 ```cmd
-cd C:\Users\旻\Documents\GitHub\Player
+cd C:\Player
 ```
+
+如果 junction 不存在，先创建：
+
+```cmd
+cmd /c mklink /J C:\Player "C:\Users\旻\Documents\GitHub\Player"
+cmd /c mklink /J C:\buildscripts "C:\Users\旻\Documents\GitHub\buildscripts"
+cmd /c mklink /J C:\vcpkg "C:\Users\旻\Documents\GitHub\vcpkg"
+```
+
+如果 `C:\buildscripts\windows\vcpkg` 不存在，进入 `C:\buildscripts\windows` 后运行 `download_prebuilt.cmd`，或手动下载 `https://ci.easyrpg.org/downloads/windows/toolchain-windows.zip` 并解压到该目录。
 
 ### 2. 运行 CMake 配置
 
-使用预设配置来配置项目：
+使用本地调试预设配置项目：
 
 ```cmd
-cmake --preset windows-x64-vs2022-release
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" --fresh --preset windows-x64-vs2022-debug-local
 ```
 
 **说明**：
-- 此命令会自动使用 buildscripts 中的预编译依赖库
+- 此命令会使用 `C:\vcpkg` 中的本地依赖库
+- 会使用 `x64-windows` 和动态 CRT，避免与本地 vcpkg 库链接冲突
 - 会自动克隆并配置 liblcf 库（如果 `lib/liblcf` 目录不存在）
-- 配置文件会生成到 `build/windows-x64-vs2022-release` 目录
+- 配置文件会生成到 `build/windows-x64-vs2022-debug-local` 目录
 
 **可用的其他预设**：
-- `windows-x64-vs2022-debug` - 调试版本
-- `windows-x64-vs2022-relwithdebinfo` - 带调试信息的发布版本
-- `windows-x86-vs2022-release` - 32位发布版本
+- `windows-x64-vs2022-debug-local` - 当前设备推荐的本地调试版本，动态链接，不能单文件分发
+- `windows-x64-vs2022-release-local` - 当前设备推荐的本地发布版本，静态链接，产物是单文件 `Player.exe`
+- `windows-x64-vs2022-debug` - 官方调试版本，默认要求 `x64-windows-static`
+- `windows-x64-vs2022-relwithdebinfo` - 官方带调试信息的发布版本，默认要求 `x64-windows-static`
+- `windows-x64-vs2022-release` - 官方发布版本，默认要求 `x64-windows-static`
 
 ### 3. 编译项目
 
 配置完成后，运行编译命令：
 
 ```cmd
-cmake --build build/windows-x64-vs2022-release --config Release
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" --build --preset windows-x64-vs2022-debug-local
 ```
 
 **说明**：
@@ -83,7 +108,19 @@ cmake --build build/windows-x64-vs2022-release --config Release
 编译成功后，可执行文件位于：
 
 ```
-C:\Users\旻\Documents\GitHub\Player\build\windows-x64-vs2022-release\Release\Player.exe
+C:\Player\build\windows-x64-vs2022-debug-local\Debug\Player.exe
+```
+
+发布版可执行文件位于：
+
+```
+C:\Player\build\windows-x64-vs2022-release-local\Release\Player.exe
+```
+
+发布版使用 `x64-windows-static`，可以直接把单个 `Player.exe` 复制到游戏目录运行。
+
+```cmd
+copy C:\Player\build\windows-x64-vs2022-release-local\Release\Player.exe D:\もしもコレクション7\
 ```
 
 ## 快速重新编译
@@ -91,8 +128,8 @@ C:\Users\旻\Documents\GitHub\Player\build\windows-x64-vs2022-release\Release\Pl
 如果只是修改了源代码，不需要重新配置，直接运行编译命令即可：
 
 ```cmd
-cd C:\Users\旻\Documents\GitHub\Player
-cmake --build build/windows-x64-vs2022-release --config Release
+cd C:\Player
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" --build --preset windows-x64-vs2022-debug-local
 ```
 
 ## 清理构建
@@ -100,8 +137,8 @@ cmake --build build/windows-x64-vs2022-release --config Release
 如果需要完全重新编译，删除 build 目录：
 
 ```cmd
-cd C:\Users\旻\Documents\GitHub\Player
-rmdir /S /Q build\windows-x64-vs2022-release
+cd C:\Player
+rmdir /S /Q build\windows-x64-vs2022-debug-local
 ```
 
 然后重新执行配置和编译步骤。
@@ -112,18 +149,40 @@ rmdir /S /Q build\windows-x64-vs2022-release
 
 ```
 builds/cmake/CMakePresetsUser.json
+CMakeUserPresets.json
 ```
 
 **重要配置项**：
 
 1. **vcpkg toolchain 路径**（第30行）：
    ```json
-   "toolchainFile": "C:/Users/旻/Documents/GitHub/buildscripts/windows/vcpkg/scripts/buildsystems/vcpkg.cmake"
+   "toolchainFile": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
    ```
 
 2. **自动编译 liblcf**（第32行）：
    ```json
    "PLAYER_BUILD_LIBLCF": "ON"
+   ```
+
+3. **本地调试 preset**：
+   ```json
+   "name": "windows-x64-vs2022-debug-local"
+   ```
+
+4. **本地发布 preset**：
+   ```json
+   "name": "windows-x64-vs2022-release-local"
+   ```
+
+5. **发布版 static triplet**：
+   ```json
+   "VCPKG_TARGET_TRIPLET": "x64-windows-static"
+   ```
+
+6. **调试版本地 vcpkg 与 CRT**：
+   ```json
+   "VCPKG_TARGET_TRIPLET": "x64-windows",
+   "VCPKG_CRT_LINKAGE": "dynamic"
    ```
 
 这些配置已经设置好，通常不需要修改。
@@ -139,6 +198,14 @@ Could not find toolchain file: "/windows/vcpkg/scripts/buildsystems/vcpkg.cmake"
 
 **解决方案**：
 检查 `builds/cmake/CMakePresetsUser.json` 文件中的 `toolchainFile` 路径是否正确。
+
+### 问题1.1：CMake 在配置依赖时无错误信息退出
+
+**现象**：
+配置过程停在查找 Git、PNG、ZLIB 或其他依赖附近，退出码类似 `-1073740791`，但没有普通 CMake 错误。
+
+**解决方案**：
+从 `C:\Player` 运行配置和编译，不要直接从 `C:\Users\旻\Documents\GitHub\Player` 运行。当前工具链在中文用户名路径下不稳定。
 
 ### 问题2：找不到 liblcf
 
@@ -157,16 +224,37 @@ Could not find a package configuration file provided by "liblcf"
 2. 确保 Visual Studio 2022 已正确安装
 3. 检查是否有未提交的代码修改导致编译失败
 
-## 更新依赖库
+### 问题4：链接时报 `__imp_fgets`、`__imp_fdopen` 等无法解析
 
-如果需要更新 buildscripts 中的预编译依赖库：
+**原因**：
+工程使用了静态 CRT，但本地 vcpkg 依赖来自 `x64-windows`，使用动态 CRT。
 
-```cmd
-cd C:\Users\旻\Documents\GitHub\buildscripts\windows
-download_prebuilt.cmd
+**解决方案**：
+使用 `windows-x64-vs2022-debug-local` preset。该 preset 已设置：
+
+```json
+"VCPKG_TARGET_TRIPLET": "x64-windows",
+"VCPKG_CRT_LINKAGE": "dynamic"
 ```
 
-**注意**：这会删除现有的 vcpkg 目录并重新下载（约1.4GB）。
+### 问题5：复制到游戏目录后启动提示缺少 DLL
+
+**原因**：
+使用了 Debug 动态构建，或误用了 `x64-windows` 动态 triplet。动态构建的 `Player.exe` 依赖输出目录里的 SDL2、libpng、zlib、fmt 等 DLL。
+
+**解决方案**：
+发布给游戏目录使用 `windows-x64-vs2022-release-local`。该 preset 使用 `x64-windows-static`，产物是单文件 `Player.exe`。Debug 动态构建只用于本地调试。
+
+## 更新依赖库
+
+如果需要更新当前本地 vcpkg 依赖库：
+
+```cmd
+cd C:\vcpkg
+.\vcpkg.exe upgrade --no-dry-run
+```
+
+**注意**：Debug local preset 使用 `x64-windows`。Release local preset 使用 `C:\buildscripts\windows\vcpkg` 中的 `x64-windows-static`。
 
 ## 使用 Visual Studio IDE 编译
 
@@ -175,9 +263,9 @@ download_prebuilt.cmd
 1. 配置项目（同上）
 2. 打开解决方案文件：
    ```
-   build\windows-x64-vs2022-release\EasyRPG_Player.sln
+   build\windows-x64-vs2022-debug-local\EasyRPG_Player.sln
    ```
-3. 在 Visual Studio 中选择 Release 配置
+3. 在 Visual Studio 中选择 Debug 配置
 4. 点击"生成" → "生成解决方案"
 
 ## 参考文档
@@ -188,5 +276,5 @@ download_prebuilt.cmd
 
 ---
 
-**最后更新**: 2026-02-08
+**最后更新**: 2026-05-18
 **编译器版本**: MSVC 19.44.35222.0 (Visual Studio 2022)

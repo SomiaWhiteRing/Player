@@ -320,12 +320,12 @@ void Player::UpdateInput() {
 	if (Input::IsSystemTriggered(Input::TOGGLE_ZOOM)) {
 		DisplayUi->ToggleZoom();
 	}
-	float speed = 1.0;
+	auto speed = 1.0f;
 	if (Input::IsSystemPressed(Input::FAST_FORWARD_A)) {
-		speed = Input::GetInputSource()->GetConfig().speed_modifier_a.Get();
+		speed = static_cast<float>(Input::GetInputSource()->GetConfig().speed_modifier_a.Get());
 	}
 	if (Input::IsSystemPressed(Input::FAST_FORWARD_B)) {
-		speed = Input::GetInputSource()->GetConfig().speed_modifier_b.Get();
+		speed = static_cast<float>(Input::GetInputSource()->GetConfig().speed_modifier_b.Get());
 	}
 	Game_Clock::SetGameSpeedFactor(speed);
 

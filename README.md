@@ -6,6 +6,18 @@ EasyRPG Player 的苍旻白轮个人魔改造版。基于 EasyRPG Player 0.8.1.1
 
 ## 主要改动
 
+### 追加功能开关
+
+按 `F1` 打开系统设置菜单后，可以进入 `追加功能` 单独开关本分支新增功能。
+
+这些开关默认启用，也会写入配置文件的 `[Player]` 段：
+
+- `ExtraMessageHistory`：对话历史记录
+- `ExtraMouseSupport`：鼠标功能补完
+- `ExtraMoviePlayback`：兼容视频播放
+- `ExtraNameInputChoices`：输入式解谜自动选项化
+- `ExtraHideManiacLogs`：隐藏 Maniac 相关日志
+
 ### 隐藏Maniac相关的错误提示
 
 顾名思义。毫无意义又烦人。
@@ -17,7 +29,15 @@ EasyRPG Player 的苍旻白轮个人魔改造版。基于 EasyRPG Player 0.8.1.1
 
 ### 鼠标功能补完
 
-在对话状态/标题界面/存读档界面下，鼠标左键能够起到和确定键相同的效果。
+开启 `ExtraMouseSupport` 后，在对话状态/标题界面/存读档界面下，鼠标左键能够起到和确定键相同的效果。
+
+普通对话等待继续时，鼠标滚轮下滚也等同于确定；选项选择和数值输入不会把滚轮下滚当作确定。
+
+### 加速倍率支持小数
+
+`Fast Forward A/B` 的倍率现在支持一位小数，范围为 `0.1` 到 `100.0`。
+
+小于 `1.0` 时会作为减速使用，例如 `0.1` 表示十分之一速度。
 
 ### 兼容视频播放
 
@@ -41,13 +61,17 @@ EasyRPG Player 的苍旻白轮个人魔改造版。基于 EasyRPG Player 0.8.1.1
 
 ## 本地打包
 
-当前仓库在 Windows x64 下推荐使用：
+当前仓库在 Windows x64 下打包单文件 Release 版时使用：
 
 ```powershell
-cmake --build build/windows-x64-vs2022-release --config Release --parallel
-cmake --build build/windows-x64-vs2022-release --target check --config Release --parallel
-cmake --install build/windows-x64-vs2022-release --config Release --prefix build/package/stage
+$cmake = "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+& $cmake --preset windows-x64-vs2022-release-local
+& $cmake --build --preset windows-x64-vs2022-release-local
+
+Remove-Item -Recurse -Force build/package/stage -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force build/package/stage, build/artifacts | Out-Null
+Copy-Item build/windows-x64-vs2022-release-local/Release/Player.exe build/package/stage/
 Compress-Archive -Path build/package/stage/* -DestinationPath build/artifacts/EasyRPG-Player-Kai-local-windows-x64.zip -Force
 ```
 
-打包后的 zip 可直接分发，默认输出到 `build/artifacts/`。
+打包后的 zip 可直接分发，默认输出到 `build/artifacts/`。Release preset 使用 `x64-windows-static`，发布时只需要 `Player.exe`。

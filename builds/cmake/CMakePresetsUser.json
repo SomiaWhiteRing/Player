@@ -27,9 +27,13 @@
 			"name": "win-user",
 			"displayName": "user overrides for Windows",
 			"hidden": true,
-			"toolchainFile": "C:/Users/旻/Documents/GitHub/buildscripts/windows/vcpkg/scripts/buildsystems/vcpkg.cmake",
+			"toolchainFile": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
 			"cacheVariables": {
-				"PLAYER_BUILD_LIBLCF": "ON"
+				"PLAYER_BUILD_LIBLCF": "ON",
+				"VCPKG_TARGET_TRIPLET": "x64-windows",
+				"GIT_EXECUTABLE": "C:/Program Files/Git/cmd/git.exe",
+				"GIT_FOUND": "TRUE",
+				"Git_FOUND": "TRUE"
 			},
 			"inherits": ["win-base"],
 			"vendor": {

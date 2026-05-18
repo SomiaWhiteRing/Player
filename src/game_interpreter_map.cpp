@@ -579,7 +579,10 @@ bool Game_Interpreter_Map::CommandEnterHeroName(lcf::rpg::EventCommand const& co
 		return true;
 	}
 
-	auto candidates = NameInputCandidates::Collect(commands, index, actor_id);
+	std::vector<NameInputCandidate> candidates;
+	if (Player::player_config.extra_name_input_choices.Get()) {
+		candidates = NameInputCandidates::Collect(commands, index, actor_id);
+	}
 	auto scene = std::make_shared<Scene_Name>(*actor, charset, use_default_name, std::move(candidates));
 	Scene::instance->SetRequestedScene(std::move(scene));
 
@@ -763,6 +766,11 @@ bool Game_Interpreter_Map::CommandPlayMovie(lcf::rpg::EventCommand const& com) {
 	int pos_y = ValueOrVariable(com.parameters[0], com.parameters[2]);
 	int res_x = com.parameters[3];
 	int res_y = com.parameters[4];
+
+	if (!Player::player_config.extra_movie_playback.Get()) {
+		Output::Warning("Couldn't play movie: {}. Movie playback is disabled.", filename);
+		return true;
+	}
 
 	if (Main_Data::game_screen->ConsumeMovieFinished()) {
 		return true;

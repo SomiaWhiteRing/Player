@@ -21,9 +21,12 @@
 #include "string_view.h"
 #include "filefinder.h"
 #include <array>
+#include <cstdlib>
 #include <cstdint>
+#include <iomanip>
 #include <lcf/inireader.h>
 #include <limits>
+#include <sstream>
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -40,7 +43,9 @@ namespace {
 	}
 
 	inline std::string ParamValueToString(double d) {
-		return std::to_string(d);
+		std::ostringstream os;
+		os << std::fixed << std::setprecision(1) << d;
+		return os.str();
 	}
 
 	inline std::string ParamValueToString(bool b) {
@@ -193,6 +198,14 @@ public:
 				return true;
 			} else if constexpr (std::is_same_v<T, int>) {
 				Set(ini.GetInteger(_config_section, _config_key, T()));
+				return true;
+			} else if constexpr (std::is_same_v<T, double>) {
+				auto s = ToString(ini.GetString(_config_section, _config_key, ""));
+				char* end = nullptr;
+				auto value = std::strtod(s.c_str(), &end);
+				if (end != s.c_str()) {
+					Set(value);
+				}
 				return true;
 			} else if constexpr (std::is_same_v<T, bool>) {
 				Set(ini.GetBoolean(_config_section, _config_key, T()));
