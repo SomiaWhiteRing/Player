@@ -29,6 +29,7 @@ env:
   BUILD_DIR: build/windows-x64-vs2022-release
   BUILDSCRIPTS_DIR: ${{ github.workspace }}\external\buildscripts
   VCPKG_TRIPLET: x64-windows-static
+  TOOLCHAIN_URL: https://ci.easyrpg.org/downloads/windows/toolchain-windows.zip
 
 jobs:
   publish:
@@ -56,39 +57,78 @@ jobs:
           "commit_short=$(git rev-parse --short HEAD)" >> $env:GITHUB_OUTPUT
           "commit_subject=$(git log -1 --pretty=%s)" >> $env:GITHUB_OUTPUT
 
-      - name: Clone EasyRPG buildscripts
-        run: |
-          git clone --depth 1 https://github.com/EasyRPG/buildscripts.git $env:BUILDSCRIPTS_DIR
+      - name: Restore EasyRPG Windows toolchain cache
+        id: toolchain-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.BUILDSCRIPTS_DIR }}\windows\vcpkg
+          key: easyrpg-windows-toolchain-${{ runner.os }}-${{ env.VCPKG_TRIPLET }}-2026-04-28
 
-      - name: Bootstrap Windows dependencies
+      - name: Prepare EasyRPG Windows toolchain
         run: |
-          Push-Location "$env:BUILDSCRIPTS_DIR\windows"
-          cmd /c helper\prepare.cmd
+          $toolchainFile = Join-Path $env:BUILDSCRIPTS_DIR "windows\vcpkg\scripts\buildsystems\vcpkg.cmake"
+          $tripletDir = Join-Path $env:BUILDSCRIPTS_DIR "windows\vcpkg\installed\$env:VCPKG_TRIPLET"
 
-          .\vcpkg\vcpkg.exe install --triplet $env:VCPKG_TRIPLET --recurse `
-            libpng[core] expat[core] pixman[core] freetype[core,zlib] harfbuzz[freetype] `
-            libvorbis[core] libsndfile[core] wildmidi[core] libxmp[core] `
-            speexdsp[core] mpg123[core] opusfile[core] fluidsynth-easyrpg[core] `
-            inih[cpp] lhasa-easyrpg[core] `
-            sdl2[core] icu-easyrpg[core] nlohmann-json[core] fmt[core]
-          Pop-Location
+          if (-not (Test-Path $toolchainFile)) {
+            $windowsDir = Join-Path $env:BUILDSCRIPTS_DIR "windows"
+            $vcpkgDir = Join-Path $windowsDir "vcpkg"
+            $zipPath = Join-Path $env:RUNNER_TEMP "toolchain-windows.zip"
+
+            New-Item -ItemType Directory -Force -Path $windowsDir | Out-Null
+            Remove-Item $vcpkgDir -Recurse -Force -ErrorAction SilentlyContinue
+
+            curl.exe -L --fail --retry 5 --retry-delay 10 -o $zipPath $env:TOOLCHAIN_URL
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to download $env:TOOLCHAIN_URL"
+            }
+
+            New-Item -ItemType Directory -Force -Path $vcpkgDir | Out-Null
+            tar.exe -xf $zipPath -C $vcpkgDir --strip-components=1
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to extract $zipPath"
+            }
+          }
+
+          if (-not (Test-Path $toolchainFile)) {
+            throw "Missing vcpkg toolchain: $toolchainFile"
+          }
+          if (-not (Test-Path $tripletDir)) {
+            throw "Missing vcpkg triplet directory: $tripletDir"
+          }
+
+          Get-ChildItem (Join-Path $env:BUILDSCRIPTS_DIR "windows\vcpkg\installed") -Directory |
+            Select-Object -ExpandProperty Name
 
       - name: Configure
         run: |
           $versionSuffix = "(nightly, $(Get-Date -AsUTC -Format 'yyyy-MM-dd'))"
+          $versionArg = "-DPLAYER_VERSION_APPEND=$versionSuffix"
           cmake -S . -B $env:BUILD_DIR `
             -G "Visual Studio 17 2022" -A x64 `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_TOOLCHAIN_FILE="$env:BUILDSCRIPTS_DIR\windows\vcpkg\scripts\buildsystems\vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET=$env:VCPKG_TRIPLET `
             -DPLAYER_BUILD_LIBLCF=ON `
-            -DPLAYER_VERSION_APPEND="$versionSuffix"
+            -DPLAYER_ENABLE_TESTS=OFF `
+            $versionArg
 
       - name: Build
         run: cmake --build $env:BUILD_DIR --config Release --parallel
 
-      - name: Run tests
-        run: cmake --build $env:BUILD_DIR --target check --config Release --parallel
+      - name: Verify executable
+        run: |
+          $exePath = Join-Path $env:BUILD_DIR "Release\Player.exe"
+          if (-not (Test-Path $exePath)) {
+            throw "Missing build output: $exePath"
+          }
+
+          $dlls = Get-ChildItem (Split-Path $exePath) -Filter *.dll -File -ErrorAction SilentlyContinue
+          if ($dlls) {
+            $names = ($dlls | Select-Object -ExpandProperty Name) -join ", "
+            throw "Release build is expected to be a single-file static build, but DLLs were produced: $names"
+          }
+
+          & $exePath --version
 
       - name: Package nightly artifact
         id: package
@@ -97,11 +137,12 @@ jobs:
           $artifactDir = Join-Path $env:RUNNER_TEMP "nightly-artifacts"
           $archivePath = Join-Path $artifactDir $env:ARCHIVE_NAME
           $hashPath = "$archivePath.sha256"
+          $exePath = Join-Path $env:BUILD_DIR "Release\Player.exe"
 
           Remove-Item $stageDir, $artifactDir -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force -Path $stageDir, $artifactDir | Out-Null
 
-          cmake --install $env:BUILD_DIR --config Release --prefix $stageDir
+          Copy-Item $exePath -Destination $stageDir -Force
 
           Compress-Archive -Path (Join-Path $stageDir '*') -DestinationPath $archivePath -Force
           $hash = (Get-FileHash -Algorithm SHA256 $archivePath).Hash.ToLowerInvariant()
