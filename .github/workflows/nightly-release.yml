@@ -25,7 +25,8 @@ env:
   TRACKED_BRANCH: my-feature-stable
   NIGHTLY_TAG: nightly
   RELEASE_TITLE: Nightly
-  ARCHIVE_NAME: EasyRPG-Player-Kai-nightly-windows-x64.zip
+  ASSET_NAME: Player.exe
+  LEGACY_ARCHIVE_NAME: EasyRPG-Player-Kai-nightly-windows-x64.zip
   BUILD_DIR: build/windows-x64-vs2022-release
   BUILDSCRIPTS_DIR: ${{ github.workspace }}\external\buildscripts
   VCPKG_TRIPLET: x64-windows-static
@@ -180,25 +181,19 @@ jobs:
 
           & $exePath --version
 
-      - name: Package nightly artifact
+      - name: Stage nightly executable
         id: package
         run: |
-          $stageDir = Join-Path $env:RUNNER_TEMP "nightly-stage"
           $artifactDir = Join-Path $env:RUNNER_TEMP "nightly-artifacts"
-          $archivePath = Join-Path $artifactDir $env:ARCHIVE_NAME
-          $hashPath = "$archivePath.sha256"
+          $assetPath = Join-Path $artifactDir $env:ASSET_NAME
           $exePath = Join-Path $env:BUILD_DIR "Release\Player.exe"
 
-          Remove-Item $stageDir, $artifactDir -Recurse -Force -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Force -Path $stageDir, $artifactDir | Out-Null
+          Remove-Item $artifactDir -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $artifactDir | Out-Null
 
-          Copy-Item $exePath -Destination $stageDir -Force
+          Copy-Item $exePath -Destination $assetPath -Force
 
-          Compress-Archive -Path (Join-Path $stageDir '*') -DestinationPath $archivePath -Force
-          $hash = (Get-FileHash -Algorithm SHA256 $archivePath).Hash.ToLowerInvariant()
-          "$hash  $($env:ARCHIVE_NAME)" | Set-Content -Path $hashPath -NoNewline
-
-          "artifact_dir=$artifactDir" >> $env:GITHUB_OUTPUT
+          "artifact_path=$assetPath" >> $env:GITHUB_OUTPUT
 
       - name: Move nightly tag
         run: |
@@ -222,7 +217,7 @@ jobs:
           - Message: ${{ steps.meta.outputs.commit_subject }}
           - Built at: $builtAt
           - Workflow run: $runUrl
-          - Artifact: $env:ARCHIVE_NAME built for Windows x64
+          - Artifact: $env:ASSET_NAME built for Windows x64
           "@ | Set-Content -Path $notesFile
 
           "notes_file=$notesFile" >> $env:GITHUB_OUTPUT
@@ -248,7 +243,29 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          $assetPath = "${{ steps.package.outputs.artifact_path }}"
+          if (-not (Test-Path $assetPath)) {
+            throw "Missing release asset: $assetPath"
+          }
+
+          $release = gh release view $env:NIGHTLY_TAG --json assets | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+          $replaceAssets = @(
+            $env:ASSET_NAME,
+            $env:LEGACY_ARCHIVE_NAME,
+            "$($env:LEGACY_ARCHIVE_NAME).sha256"
+          )
+          foreach ($asset in $release.assets) {
+            if ($replaceAssets -contains $asset.name) {
+              gh release delete-asset $env:NIGHTLY_TAG $asset.name --yes
+              if ($LASTEXITCODE -ne 0) {
+                exit $LASTEXITCODE
+              }
+            }
+          }
+
           gh release upload $env:NIGHTLY_TAG `
-            "${{ steps.package.outputs.artifact_dir }}\$env:ARCHIVE_NAME" `
-            "${{ steps.package.outputs.artifact_dir }}\$env:ARCHIVE_NAME.sha256" `
-            --clobber
+            $assetPath
