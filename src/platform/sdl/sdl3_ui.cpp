@@ -84,6 +84,12 @@ static DynamicFormat GetDynamicFormat(uint32_t fmt) {
 	}
 }
 
+#ifdef __ANDROID__
+static bool ShouldTopAlignAndroidViewport(int window_width, int window_height) {
+	return window_height > window_width;
+}
+#endif
+
 #ifdef _WIN32
 HWND GetWindowHandle(SDL_Window* window) {
 	SDL_SysWMinfo wminfo;
@@ -568,6 +574,11 @@ void Sdl3Ui::UpdateDisplay() {
 			viewport.x = (window.width - viewport.w) / 2;
 			viewport.h = static_cast<int>(ceilf(main_surface->height() * window.scale));
 			viewport.y = (window.height - viewport.h) / 2;
+#ifdef __ANDROID__
+			if (ShouldTopAlignAndroidViewport(window.width, window.height)) {
+				viewport.y = 0;
+			}
+#endif
 			do_stretch();
 
 			SDL_SetRenderViewport(sdl_renderer, &viewport);
@@ -588,6 +599,11 @@ void Sdl3Ui::UpdateDisplay() {
 			viewport.w = window.width;
 			viewport.h = static_cast<int>(ceilf(main_surface->height() * window.scale));
 			viewport.y = (window.height - viewport.h) / 2;
+#ifdef __ANDROID__
+			if (ShouldTopAlignAndroidViewport(window.width, window.height)) {
+				viewport.y = 0;
+			}
+#endif
 			do_stretch();
 			SDL_SetRenderViewport(sdl_renderer, &viewport);
 		} else {
