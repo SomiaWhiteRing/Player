@@ -147,3 +147,4 @@ eboot.bin
 *.pem
 *.keystore
 *.jks
+!/builds/android/nightly-debug.keystore

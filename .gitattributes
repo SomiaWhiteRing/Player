@@ -20,3 +20,5 @@ builds/android/app/src/main/java/org/libsdl/app/*.java -diff linguist-vendored
 builds/android/app/src/main/java/org/libsdl/app/SDLActivity.java diff
 src/generated/* -diff linguist-generated
 *.sf2 -text
+*.keystore -text
+*.jks -text

@@ -442,6 +442,7 @@ jobs:
           ./gradlew \
             -PtoolchainDirs="$ANDROID_WORK_DIR" \
             -PABI_FILTERS_DEBUG="$ANDROID_ABIS" \
+            -PVERSION_CODE_OVERRIDE="$((9778000 + GITHUB_RUN_NUMBER))" \
             -PcmakeOptions="-DPLAYER_TARGET_PLATFORM=SDL3" \
             assembleDebug
 
@@ -462,6 +463,10 @@ jobs:
               exit 1
             }
           done
+          unzip -l "$apk_path" "assets/builtin/recommended.sf2" | grep -q "assets/builtin/recommended.sf2" || {
+            echo "Missing built-in SoundFont asset in $apk_path"
+            exit 1
+          }
 
           rm -rf "$artifact_dir"
           mkdir -p "$artifact_dir"

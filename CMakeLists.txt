@@ -22,7 +22,7 @@ else()
 	set(PLAYER_PYTHON_EXECUTABLE "python3" CACHE STRING "Python interpreter used by build helper scripts")
 endif()
 
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten" AND NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
 	set(PLAYER_RECOMMENDED_SOUNDFONT_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/generated/recommended_soundfont_data.cpp")
 	set_source_files_properties(${PLAYER_RECOMMENDED_SOUNDFONT_SOURCE} PROPERTIES GENERATED TRUE)
 endif()

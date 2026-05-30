@@ -13,9 +13,15 @@ android {
         minSdkVersion 23
         targetSdkVersion 36
         versionName VERSION_NAME
-        versionCode Integer.parseInt(VERSION_CODE)
+        versionCode Integer.parseInt(project.findProperty("VERSION_CODE_OVERRIDE") ?: VERSION_CODE)
     }
     signingConfigs {
+        nightlyDebug {
+            storeFile file(project.findProperty("NIGHTLY_DEBUG_STORE_FILE") ?: "../nightly-debug.keystore")
+            storePassword project.findProperty("NIGHTLY_DEBUG_STORE_PASSWORD") ?: "easyrpgkai"
+            keyAlias project.findProperty("NIGHTLY_DEBUG_KEY_ALIAS") ?: "easyrpg-kai-nightly"
+            keyPassword project.findProperty("NIGHTLY_DEBUG_KEY_PASSWORD") ?: "easyrpgkai"
+        }
         release {
             storeFile file(RELEASE_STORE_FILE)
             storePassword RELEASE_STORE_PASSWORD
@@ -25,6 +31,7 @@ android {
     }
     buildTypes {
         debug {
+            signingConfig signingConfigs.nightlyDebug
             ndk {
                 abiFilters = []
                 abiFilters.addAll(ABI_FILTERS_DEBUG.split(','))
@@ -72,6 +79,8 @@ android {
     }
 }
 
+android.sourceSets.main.assets.srcDirs += "$buildDir/generated/assets/recommendedSoundfont"
+
 allprojects {
     repositories {
         maven {
@@ -93,7 +102,12 @@ dependencies {
 }
 
 afterEvaluate {
-    preBuild.dependsOn downloadSdlAar
+    preBuild.dependsOn downloadSdlAar, copyRecommendedSoundfont
+}
+
+tasks.register('copyRecommendedSoundfont', Copy) {
+    from(rootProject.file("../../resources/soundfonts/recommended.sf2"))
+    into(layout.buildDirectory.dir("generated/assets/recommendedSoundfont/builtin"))
 }
 
 tasks.register('downloadSdlAar') {

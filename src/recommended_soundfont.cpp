@@ -32,6 +32,51 @@
 namespace {
 	constexpr const char* kEmscriptenPath = "/builtin/recommended.sf2";
 }
+#elif defined(__ANDROID__)
+namespace {
+	constexpr const char* kAndroidAssetPath = "apk://builtin";
+	std::string cached_path;
+	bool exported = false;
+
+	bool WriteSoundFont(FilesystemView dst_fs, const std::string& filename) {
+		if (!dst_fs) {
+			return false;
+		}
+
+		auto asset_fs = FileFinder::Root().Create(kAndroidAssetPath);
+		if (!asset_fs) {
+			Output::Warning("Could not open built-in SoundFont assets");
+			return false;
+		}
+
+		const auto asset_size = asset_fs.GetFilesize(filename);
+		if (asset_size <= 0) {
+			Output::Warning("Could not find built-in SoundFont");
+			return false;
+		}
+
+		if (dst_fs.Exists(filename) && dst_fs.GetFilesize(filename) == asset_size) {
+			return true;
+		}
+
+		auto in = asset_fs.OpenInputStream(filename);
+		if (!in) {
+			Output::Warning("Could not open built-in SoundFont");
+			return false;
+		}
+
+		auto out = dst_fs.OpenOutputStream(filename, std::ios_base::out | std::ios_base::binary);
+		if (!out) {
+			return false;
+		}
+
+		out << in.rdbuf();
+		const bool ok = out.good();
+		out.Close();
+		dst_fs.ClearCache();
+		return ok;
+	}
+}
 #else
 namespace EmbeddedResources {
 	extern const uint8_t recommended_soundfont[];
@@ -77,6 +122,20 @@ std::string RecommendedSoundFont::GetPath() {
 
 	Output::Warning("Could not find built-in SoundFont");
 	return {};
+#elif defined(__ANDROID__)
+	if (exported && !cached_path.empty()) {
+		return cached_path;
+	}
+
+	auto fs = Game_Config::GetSoundfontFilesystem();
+	if (WriteSoundFont(fs, kFilename)) {
+		cached_path = FileFinder::MakePath(fs.GetFullPath(), kFilename);
+		exported = true;
+		return cached_path;
+	}
+
+	Output::Warning("Could not export built-in SoundFont");
+	return {};
 #else
 	if (exported && !cached_path.empty()) {
 		return cached_path;
@@ -102,7 +161,7 @@ std::string RecommendedSoundFont::GetPath() {
 }
 
 void RecommendedSoundFont::Refresh() {
-#ifndef EMSCRIPTEN
+#if !defined(EMSCRIPTEN)
 	cached_path.clear();
 	exported = false;
 #endif
