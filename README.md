@@ -16,6 +16,7 @@ EasyRPG Player 的苍旻白轮个人魔改造版。基于 EasyRPG Player 0.8.1.1
 - `ExtraMessageHistory`：对话历史记录
 - `ExtraMouseSupport`：鼠标功能补完
 - `ExtraMoviePlayback`：兼容视频播放
+- `ExtraRecommendedSoundFont`：使用作者推荐的SoundFont
 - `ExtraNameInputChoices`：输入式解谜自动选项化
 - `ExtraHideManiacLogs`：隐藏 Maniac 相关日志
 

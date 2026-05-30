@@ -90,7 +90,8 @@ struct Game_ConfigPlayer {
 	BoolConfigParam settings_in_menu{ "Show settings in menu", "Display settings menu item on the menu screen", "Player", "SettingsInMenu", false };
 	BoolConfigParam extra_message_history{ "对话历史记录", "按下~键/鼠标滚轮上滚查看对话历史", "Player", "ExtraMessageHistory", true };
 	BoolConfigParam extra_mouse_support{ "鼠标功能补完", "添加符合Galgame直觉的鼠标支持", "Player", "ExtraMouseSupport", true };
-	BoolConfigParam extra_movie_playback{ "兼容视频播放", "使用windows自带解码器播放游戏中插入的视频", "Player", "ExtraMoviePlayback", true };
+	BoolConfigParam extra_movie_playback{ "兼容视频播放", "使用平台内置解码器播放游戏中插入的视频", "Player", "ExtraMoviePlayback", true };
+	BoolConfigParam extra_recommended_soundfont{ "MIDI音效改良", "使用作者推荐的SoundFont", "Player", "ExtraRecommendedSoundFont", true };
 	BoolConfigParam extra_name_input_choices{ "输入解谜选项化", "为输入式解谜提供候选选项", "Player", "ExtraNameInputChoices", true };
 	BoolConfigParam extra_hide_maniac_logs{ "隐藏Maniac日志", "隐藏 Maniac 相关诊断提示", "Player", "ExtraHideManiacLogs", true };
 	EnumConfigParam<ConfigEnum::StartupLogos, 3> show_startup_logos{

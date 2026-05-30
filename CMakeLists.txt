@@ -14,6 +14,15 @@ include(PlayerBuildType)
 include(PlayerMisc)
 include(GetGitRevisionDescription)
 
+if(WIN32)
+	set(PLAYER_PYTHON_EXECUTABLE "py" CACHE STRING "Python interpreter used by build helper scripts")
+else()
+	set(PLAYER_PYTHON_EXECUTABLE "python3" CACHE STRING "Python interpreter used by build helper scripts")
+endif()
+
+set(PLAYER_RECOMMENDED_SOUNDFONT_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/generated/recommended_soundfont_data.cpp")
+set_source_files_properties(${PLAYER_RECOMMENDED_SOUNDFONT_SOURCE} PROPERTIES GENERATED TRUE)
+
 # Dependencies provided by CMake Presets
 option(PLAYER_FIND_ROOT_PATH_APPEND "When enabled the items from CMAKE_PREFIX_PATH are added to CMAKE_FIND_ROOT_PATH. Works around problematic CMake Toolchain files" OFF)
 list(APPEND CMAKE_PREFIX_PATH "${PLAYER_PREFIX_PATH_APPEND}")
@@ -285,6 +294,9 @@ add_library(${PROJECT_NAME} OBJECT
 	src/rand.h
 	src/rect.cpp
 	src/rect.h
+	src/recommended_soundfont.cpp
+	src/recommended_soundfont.h
+	${PLAYER_RECOMMENDED_SOUNDFONT_SOURCE}
 	src/registry.h
 	src/registry_wine.cpp
 	src/rtp.cpp
@@ -494,6 +506,19 @@ add_library(${PROJECT_NAME} OBJECT
 
 # Include directories
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+add_custom_command(
+	OUTPUT ${PLAYER_RECOMMENDED_SOUNDFONT_SOURCE}
+	COMMAND ${PLAYER_PYTHON_EXECUTABLE}
+		${CMAKE_CURRENT_SOURCE_DIR}/builds/cmake/embed_binary.py
+		${CMAKE_CURRENT_SOURCE_DIR}/resources/soundfonts/recommended.sf2
+		${PLAYER_RECOMMENDED_SOUNDFONT_SOURCE}
+		EmbeddedResources
+		recommended_soundfont
+	DEPENDS
+		${CMAKE_CURRENT_SOURCE_DIR}/builds/cmake/embed_binary.py
+		${CMAKE_CURRENT_SOURCE_DIR}/resources/soundfonts/recommended.sf2
+	VERBATIM)
 
 # Optimize floating point math functions into intrinsics and don't check or set errno (i.e. sqrt(-1))
 if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")

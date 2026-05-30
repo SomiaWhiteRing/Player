@@ -23,6 +23,7 @@
 #include "decoder_fmmidi.h"
 #include "decoder_wildmidi.h"
 #include "output.h"
+#include "recommended_soundfont.h"
 
 #ifdef USE_AUDIO_RESAMPLER
 #include "audio_resampler.h"
@@ -147,6 +148,11 @@ bool MidiDecoder::CheckFluidsynth(std::string& status_message) {
 }
 
 void MidiDecoder::ChangeFluidsynthSoundfont(std::string_view sf_path) {
+	const auto recommended_soundfont = RecommendedSoundFont::GetPath();
+	if (!recommended_soundfont.empty()) {
+		sf_path = std::string_view(recommended_soundfont.data(), recommended_soundfont.size());
+	}
+
 	if (!works.fluidsynth || works.fluidsynth_status.empty()) {
 		// Fluidsynth was not initialized yet or failed, will use the path from the config automatically
 		works.fluidsynth = true;
