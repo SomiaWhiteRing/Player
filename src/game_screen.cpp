@@ -38,6 +38,9 @@
 #include "baseui.h"
 #include "filefinder.h"
 #include "movie_player.h"
+#ifdef EMSCRIPTEN
+#  include "async_handler.h"
+#endif
 
 Game_Screen::Game_Screen()
 {
@@ -91,6 +94,9 @@ void Game_Screen::OnMapChange() {
 	movie_res_x = 0;
 	movie_res_y = 0;
 	movie_finished = false;
+#ifdef EMSCRIPTEN
+	movie_pending = false;
+#endif
 	StopMovie(false);
 
 	data.battleanim_active = false;
@@ -183,12 +189,37 @@ bool Game_Screen::PlayMovie(std::string filename,
 		return true;
 	}
 
+#ifdef EMSCRIPTEN
+	const bool same_pending_movie = movie_pending && movie_filename == filename;
+	if (!same_pending_movie) {
+		movie_finished = false;
+	}
+#else
+	movie_finished = false;
+#endif
+
 	movie_filename = std::move(filename);
 	movie_pos_x = pos_x;
 	movie_pos_y = pos_y;
 	movie_res_x = res_x;
 	movie_res_y = res_y;
-	movie_finished = false;
+
+#ifdef EMSCRIPTEN
+	auto* movie_request = AsyncHandler::RequestFile("Movie", movie_filename);
+	if (!movie_request->IsReady()) {
+		movie_pending = true;
+		movie_request->Start();
+		return true;
+	}
+
+	movie_pending = false;
+
+	if (!movie_request->IsSuccess()) {
+		Output::Warning("Couldn't play movie: {}. Movie file could not be downloaded.", movie_filename);
+		movie_filename.clear();
+		return false;
+	}
+#endif
 
 	auto movie_path = FileFinder::FindMovie(movie_filename);
 	if (movie_path.empty()) {
@@ -197,6 +228,10 @@ bool Game_Screen::PlayMovie(std::string filename,
 		return false;
 	}
 
+	return OpenMovie(std::move(movie_path));
+}
+
+bool Game_Screen::OpenMovie(std::string movie_path) {
 	auto full_path = FileFinder::MakePath(FileFinder::GetFullFilesystemPath(FileFinder::Game()), movie_path);
 
 	if (!movie_player) {
@@ -384,6 +419,9 @@ void Game_Screen::UpdateMovie() {
 	if (movie_player) {
 		movie_player->Update(GetMovieOutputRect());
 		if (!movie_player->IsPlaying()) {
+			if (movie_player->HasError()) {
+				Output::Warning("Couldn't play movie: {}. Browser video playback failed.", movie_filename);
+			}
 			StopMovie(true);
 		}
 	}
@@ -396,6 +434,9 @@ void Game_Screen::StopMovie(bool finished) {
 	}
 
 	movie_finished = finished;
+#ifdef EMSCRIPTEN
+	movie_pending = false;
+#endif
 	movie_filename.clear();
 }
 

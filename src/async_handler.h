@@ -131,6 +131,13 @@ public:
 	bool IsReady() const;
 
 	/**
+	 * Checks if a request finished successfully.
+	 *
+	 * @return True when request succeeded, false otherwise.
+	 */
+	bool IsSuccess() const;
+
+	/**
 	 * @return If while has important-flag set.
 	 */
 	bool IsImportantFile() const;
@@ -245,6 +252,10 @@ FileRequestBinding FileRequestAsync::Bind(void (T::*func)(FileRequestResult*, Ar
 
 inline bool FileRequestAsync::IsReady() const {
 	return state == State_DoneSuccess || state == State_DoneFailure;
+}
+
+inline bool FileRequestAsync::IsSuccess() const {
+	return state == State_DoneSuccess;
 }
 
 inline bool FileRequestAsync::IsImportantFile() const {

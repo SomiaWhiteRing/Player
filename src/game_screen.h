@@ -195,6 +195,9 @@ private:
 	int movie_res_x;
 	int movie_res_y;
 	bool movie_finished = false;
+#ifdef EMSCRIPTEN
+	bool movie_pending = false;
+#endif
 
 protected:
 	std::vector<Particle> particles;
@@ -210,6 +213,7 @@ protected:
 	void UpdateFog(int dx, int dy);
 	void OnWeatherChanged();
 	void StopMovie(bool finished);
+	bool OpenMovie(std::string movie_path);
 	Rect GetMovieOutputRect() const;
 
 	void InitParticles(int n);

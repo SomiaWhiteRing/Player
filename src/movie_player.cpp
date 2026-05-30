@@ -20,10 +20,19 @@
 #ifdef _WIN32
 #include "platform/windows/movie_player_dshow.h"
 #endif
+#ifdef EMSCRIPTEN
+#include "platform/emscripten/movie_player_web.h"
+#endif
+
+bool MoviePlayer::HasError() const {
+	return false;
+}
 
 std::unique_ptr<MoviePlayer> MoviePlayer::Create() {
 #ifdef HAVE_DIRECTSHOW
 	return std::make_unique<DirectShowMoviePlayer>();
+#elif defined(HAVE_WEB_MOVIE_PLAYER)
+	return std::make_unique<WebMoviePlayer>();
 #else
 	return {};
 #endif

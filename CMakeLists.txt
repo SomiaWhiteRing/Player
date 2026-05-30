@@ -1240,10 +1240,13 @@ if(PLAYER_BUILD_EXECUTABLE AND ${PLAYER_TARGET_PLATFORM} MATCHES "^SDL.*$" AND N
 
 		target_compile_options(${PROJECT_NAME} PUBLIC -fno-exceptions)
 
+		target_compile_definitions(${PROJECT_NAME} PUBLIC SUPPORT_MOVIES=1 HAVE_WEB_MOVIE_PLAYER=1)
 		target_sources(${PROJECT_NAME} PRIVATE
 				src/platform/emscripten/clock.h
 				src/platform/emscripten/interface.cpp
-				src/platform/emscripten/interface.h)
+				src/platform/emscripten/interface.h
+				src/platform/emscripten/movie_player_web.cpp
+				src/platform/emscripten/movie_player_web.h)
 
 		target_link_libraries(${EXE_NAME} "idbfs.js")
 

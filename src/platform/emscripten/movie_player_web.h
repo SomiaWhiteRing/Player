@@ -15,28 +15,26 @@
  * along with EasyRPG Player. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef EP_MOVIE_PLAYER_H
-#define EP_MOVIE_PLAYER_H
+#ifndef EP_MOVIE_PLAYER_WEB_H
+#define EP_MOVIE_PLAYER_WEB_H
 
-#include <memory>
-#include <string>
-#include <string_view>
+#include "movie_player.h"
 
-#include "rect.h"
-
-class MoviePlayer {
+class WebMoviePlayer final : public MoviePlayer {
 public:
-	virtual ~MoviePlayer() = default;
+	WebMoviePlayer() = default;
+	~WebMoviePlayer() override;
 
-	virtual bool Open(std::string_view path, std::string& error_message) = 0;
-	virtual void Update(const Rect& dst_rect) = 0;
-	virtual void Stop() = 0;
-	virtual bool IsPlaying() const = 0;
-	virtual bool HasError() const;
-	virtual int GetNativeWidth() const = 0;
-	virtual int GetNativeHeight() const = 0;
+	bool Open(std::string_view path, std::string& error_message) override;
+	void Update(const Rect& dst_rect) override;
+	void Stop() override;
+	bool IsPlaying() const override;
+	bool HasError() const override;
+	int GetNativeWidth() const override;
+	int GetNativeHeight() const override;
 
-	static std::unique_ptr<MoviePlayer> Create();
+private:
+	bool opened = false;
 };
 
 #endif

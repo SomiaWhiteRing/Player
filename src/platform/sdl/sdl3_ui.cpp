@@ -304,9 +304,12 @@ bool Sdl3Ui::RefreshDisplayMode() {
 		#endif
 
 		#if defined(EMSCRIPTEN) || defined(_WIN32)
-		// FIXME: This will not DPI-scale on Windows due to SDL2 limitations.
-		// Is properly fixed in SDL3. See #2764
+		// Use high pixel density where SDL3 exposes the flag.
+		#ifdef SDL_WINDOW_HIGH_PIXEL_DENSITY
+		flags |= SDL_WINDOW_HIGH_PIXEL_DENSITY;
+		#elif defined(SDL_WINDOW_ALLOW_HIGHDPI)
 		flags |= SDL_WINDOW_ALLOW_HIGHDPI;
+		#endif
 		#endif
 
 		// Create our window

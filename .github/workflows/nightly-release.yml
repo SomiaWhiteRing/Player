@@ -25,17 +25,19 @@ env:
   TRACKED_BRANCH: my-feature-stable
   NIGHTLY_TAG: nightly
   RELEASE_TITLE: Nightly
-  ASSET_NAME: Player.exe
-  LEGACY_ARCHIVE_NAME: EasyRPG-Player-Kai-nightly-windows-x64.zip
-  BUILD_DIR: build/windows-x64-vs2022-release
-  BUILDSCRIPTS_DIR: ${{ github.workspace }}\external\buildscripts
-  VCPKG_TRIPLET: x64-windows-static
-  TOOLCHAIN_URL: https://ci.easyrpg.org/downloads/windows/toolchain-windows.zip
+  WINDOWS_ASSET_NAME: Player.exe
+  WEB_ASSET_NAME: EasyRPG-Player-Kai-nightly-web.zip
+  LEGACY_WINDOWS_ARCHIVE_NAME: EasyRPG-Player-Kai-nightly-windows-x64.zip
 
 jobs:
-  publish:
-    name: Build And Publish Nightly
+  windows:
+    name: Build Windows Nightly
     runs-on: windows-2022
+    env:
+      BUILD_DIR: build/windows-x64-vs2022-release
+      BUILDSCRIPTS_DIR: ${{ github.workspace }}\external\buildscripts
+      VCPKG_TRIPLET: x64-windows-static
+      TOOLCHAIN_URL: https://ci.easyrpg.org/downloads/windows/toolchain-windows.zip
 
     steps:
       - name: Clone repository
@@ -185,7 +187,7 @@ jobs:
         id: package
         run: |
           $artifactDir = Join-Path $env:RUNNER_TEMP "nightly-artifacts"
-          $assetPath = Join-Path $artifactDir $env:ASSET_NAME
+          $assetPath = Join-Path $artifactDir $env:WINDOWS_ASSET_NAME
           $exePath = Join-Path $env:BUILD_DIR "Release\Player.exe"
 
           Remove-Item $artifactDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -195,77 +197,212 @@ jobs:
 
           "artifact_path=$assetPath" >> $env:GITHUB_OUTPUT
 
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-windows
+          path: ${{ steps.package.outputs.artifact_path }}
+          if-no-files-found: error
+
+  web:
+    name: Build Web Nightly
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        shell: bash
+    env:
+      BUILD_DIR: build/emscripten-release
+      BUILDSCRIPTS_DIR: ${{ github.workspace }}/external/buildscripts
+      EMSCRIPTEN_WORK_DIR: ${{ github.workspace }}/external/buildscripts/emscripten
+
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.git-ref == ''
+        with:
+          fetch-depth: 0
+
+      - name: Clone repository (custom ref)
+        uses: actions/checkout@v4
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.git-ref != ''
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.git-ref }}
+
+      - name: Install host dependencies
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            autoconf automake bash build-essential ca-certificates cmake curl git \
+            libtool make meson ninja-build patch perl pkg-config python3 ruby unzip zip
+
+      - name: Clone EasyRPG buildscripts
+        run: |
+          mkdir -p external
+          if [ ! -d "$BUILDSCRIPTS_DIR/.git" ]; then
+            rm -rf "$BUILDSCRIPTS_DIR"
+            git clone --depth 1 https://github.com/EasyRPG/buildscripts.git "$BUILDSCRIPTS_DIR"
+          fi
+
+      - name: Restore Emscripten toolchain cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.EMSCRIPTEN_WORK_DIR }}
+          key: easyrpg-emscripten-toolchain-${{ runner.os }}-3.1.74-2026-05-29
+
+      - name: Prepare EasyRPG Emscripten toolchain
+        run: |
+          cd "$EMSCRIPTEN_WORK_DIR"
+          if [ ! -x emsdk-portable/upstream/emscripten/emcc ] || [ ! -f lib/cmake/liblcf/liblcf-config.cmake ]; then
+            BUILD_LIBLCF=1 bash ./0_build_everything.sh
+          fi
+
+      - name: Configure Web
+        run: |
+          source "$EMSCRIPTEN_WORK_DIR/emsdk-portable/emsdk_env.sh"
+          version_suffix="(nightly, $(date -u +%Y-%m-%d))"
+          cmake -S . -B "$BUILD_DIR" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="$EMSCRIPTEN_WORK_DIR/emsdk-portable/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake" \
+            -DPLAYER_PREFIX_PATH_APPEND="$EMSCRIPTEN_WORK_DIR" \
+            -DPLAYER_FIND_ROOT_PATH_APPEND=ON \
+            -DPLAYER_JS_BUILD_SHELL=ON \
+            -DPLAYER_ENABLE_TESTS=OFF \
+            -DPLAYER_TARGET_PLATFORM=SDL3 \
+            -DPLAYER_VERSION_APPEND="$version_suffix"
+
+      - name: Build Web
+        run: |
+          source "$EMSCRIPTEN_WORK_DIR/emsdk-portable/emsdk_env.sh"
+          cmake --build "$BUILD_DIR" --parallel
+
+      - name: Verify Web outputs
+        run: |
+          for file in easyrpg-player.html easyrpg-player.js easyrpg-player.wasm; do
+            test -s "$BUILD_DIR/$file" || {
+              echo "Missing build output: $BUILD_DIR/$file"
+              exit 1
+            }
+          done
+          grep -q "createEasyRpgPlayer" "$BUILD_DIR/easyrpg-player.html"
+
+      - name: Package Web artifact
+        id: package
+        run: |
+          asset_path="$RUNNER_TEMP/${WEB_ASSET_NAME}"
+          BUILD_DIR="$BUILD_DIR" \
+            ARTIFACT_DIR="$RUNNER_TEMP" \
+            PACKAGE_DIR="$RUNNER_TEMP/nightly-web" \
+            ASSET_NAME="$WEB_ASSET_NAME" \
+            bash ./builds/package-web.sh
+          echo "artifact_path=$asset_path" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-web
+          path: ${{ steps.package.outputs.artifact_path }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish Nightly
+    runs-on: ubuntu-24.04
+    needs:
+      - windows
+      - web
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.git-ref == ''
+        with:
+          fetch-depth: 0
+
+      - name: Clone repository (custom ref)
+        uses: actions/checkout@v4
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.git-ref != ''
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.git-ref }}
+
+      - name: Capture metadata
+        id: meta
+        run: |
+          echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "commit_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "commit_subject=$(git log -1 --pretty=%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/nightly-assets
+
       - name: Move nightly tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -f $env:NIGHTLY_TAG ${{ steps.meta.outputs.commit_sha }}
-          git push origin "refs/tags/$env:NIGHTLY_TAG" --force
+          git tag -f "$NIGHTLY_TAG" "${{ steps.meta.outputs.commit_sha }}"
+          git push origin "refs/tags/$NIGHTLY_TAG" --force
 
       - name: Prepare release notes
         id: notes
         run: |
-          $notesFile = Join-Path $env:RUNNER_TEMP "nightly-release-notes.md"
-          $builtAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-          $runUrl = "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          $commitUrl = "https://github.com/${{ github.repository }}/commit/${{ steps.meta.outputs.commit_sha }}"
+          notes_file="$RUNNER_TEMP/nightly-release-notes.md"
+          built_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          run_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          commit_url="https://github.com/${{ github.repository }}/commit/${{ steps.meta.outputs.commit_sha }}"
 
-          @"
-          Automated pre-release updated from branch $env:TRACKED_BRANCH.
+          cat > "$notes_file" <<EOF
+          Automated pre-release updated from branch $TRACKED_BRANCH.
 
-          - Commit: [${{ steps.meta.outputs.commit_short }}]($commitUrl)
+          - Commit: [${{ steps.meta.outputs.commit_short }}]($commit_url)
           - Message: ${{ steps.meta.outputs.commit_subject }}
-          - Built at: $builtAt
-          - Workflow run: $runUrl
-          - Artifact: $env:ASSET_NAME built for Windows x64
-          "@ | Set-Content -Path $notesFile
+          - Built at: $built_at
+          - Workflow run: $run_url
+          - Artifacts:
+            - $WINDOWS_ASSET_NAME built for Windows x64
+            - $WEB_ASSET_NAME built for Web/Emscripten
+          EOF
 
-          "notes_file=$notesFile" >> $env:GITHUB_OUTPUT
+          echo "notes_file=$notes_file" >> "$GITHUB_OUTPUT"
 
       - name: Create or update release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view $env:NIGHTLY_TAG *> $null
-          if ($LASTEXITCODE -eq 0) {
-            gh release edit $env:NIGHTLY_TAG `
-              --title $env:RELEASE_TITLE `
-              --notes-file "${{ steps.notes.outputs.notes_file }}" `
+          if gh release view "$NIGHTLY_TAG" >/dev/null 2>&1; then
+            gh release edit "$NIGHTLY_TAG" \
+              --title "$RELEASE_TITLE" \
+              --notes-file "${{ steps.notes.outputs.notes_file }}" \
               --prerelease
-          } else {
-            gh release create $env:NIGHTLY_TAG `
-              --title $env:RELEASE_TITLE `
-              --notes-file "${{ steps.notes.outputs.notes_file }}" `
+          else
+            gh release create "$NIGHTLY_TAG" \
+              --title "$RELEASE_TITLE" \
+              --notes-file "${{ steps.notes.outputs.notes_file }}" \
               --prerelease
-          }
+          fi
 
       - name: Upload release assets
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $assetPath = "${{ steps.package.outputs.artifact_path }}"
-          if (-not (Test-Path $assetPath)) {
-            throw "Missing release asset: $assetPath"
+          windows_asset="$RUNNER_TEMP/nightly-assets/nightly-windows/$WINDOWS_ASSET_NAME"
+          web_asset="$RUNNER_TEMP/nightly-assets/nightly-web/$WEB_ASSET_NAME"
+
+          test -s "$windows_asset" || {
+            echo "Missing release asset: $windows_asset"
+            exit 1
+          }
+          test -s "$web_asset" || {
+            echo "Missing release asset: $web_asset"
+            exit 1
           }
 
-          $release = gh release view $env:NIGHTLY_TAG --json assets | ConvertFrom-Json
-          if ($LASTEXITCODE -ne 0) {
-            exit $LASTEXITCODE
-          }
-
-          $replaceAssets = @(
-            $env:ASSET_NAME,
-            $env:LEGACY_ARCHIVE_NAME,
-            "$($env:LEGACY_ARCHIVE_NAME).sha256"
-          )
-          foreach ($asset in $release.assets) {
-            if ($replaceAssets -contains $asset.name) {
-              gh release delete-asset $env:NIGHTLY_TAG $asset.name --yes
-              if ($LASTEXITCODE -ne 0) {
-                exit $LASTEXITCODE
-              }
-            }
-          }
-
-          gh release upload $env:NIGHTLY_TAG `
-            $assetPath
+          gh release delete-asset "$NIGHTLY_TAG" "$LEGACY_WINDOWS_ARCHIVE_NAME" --yes >/dev/null 2>&1 || true
+          gh release delete-asset "$NIGHTLY_TAG" "$LEGACY_WINDOWS_ARCHIVE_NAME.sha256" --yes >/dev/null 2>&1 || true
+          gh release upload "$NIGHTLY_TAG" "$windows_asset" "$web_asset" --clobber

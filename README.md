@@ -1,7 +1,8 @@
 # EasyRPG Player - Kai
 
-EasyRPG Player 的苍旻白轮个人魔改造版。基于 EasyRPG Player 0.8.1.1。  
-只在Windows11x64系统上测试通过，也只会维护这个平台。  
+EasyRPG Player 的苍旻白轮个人魔改造版。基于 EasyRPG Player 0.8.1.1。
+
+当前维护 Windows 11 x64 和 Web/Emscripten 版。
 软件本身的功能请参阅[官方项目](https://easyrpg.org/)说明。
 
 ## 主要改动
@@ -75,3 +76,16 @@ Compress-Archive -Path build/package/stage/* -DestinationPath build/artifacts/Ea
 ```
 
 打包后的 zip 可直接分发，默认输出到 `build/artifacts/`。Release preset 使用 `x64-windows-static`，发布时只需要 `Player.exe`。
+
+Web 版使用 Emscripten preset：
+
+```bash
+export EASYRPG_BUILDSCRIPTS=/path/to/buildscripts
+source "$EASYRPG_BUILDSCRIPTS/emscripten/emsdk-portable/emsdk_env.sh"
+cmake --preset emscripten-sdl3-release
+cmake --build --preset emscripten-sdl3-release
+
+bash ./builds/package-web.sh
+```
+
+Web zip 需要通过 HTTP 服务访问。游戏数据放在 `games/default/`，并使用 `resources/emscripten/indexgen.php` 生成 `index.json`。

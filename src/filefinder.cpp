@@ -56,7 +56,11 @@
 
 namespace {
 #ifdef SUPPORT_MOVIES
+#  ifdef HAVE_WEB_MOVIE_PLAYER
+	constexpr std::array<std::string_view, 5> MOVIE_TYPES = { ".avi", ".mpg", ".mp4", ".webm", ".ogv" };
+#  else
 	constexpr std::array<std::string_view, 2> MOVIE_TYPES = { ".avi", ".mpg" };
+#  endif
 #endif
 
 	std::shared_ptr<Filesystem> root_fs;
