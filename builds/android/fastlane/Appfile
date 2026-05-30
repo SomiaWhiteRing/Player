@@ -1,5 +1,5 @@
 # fastlane global config
 
-package_name "org.easyrpg.player"
+package_name "org.easyrpg.player.kai"
 # useful for local configuration:
 #json_key_file "/path/to/our/key.json"

@@ -9,7 +9,7 @@ android {
         prefab true
     }
     defaultConfig {
-        applicationId "org.easyrpg.player"
+        applicationId "org.easyrpg.player.kai"
         minSdkVersion 23
         targetSdkVersion 36
         versionName VERSION_NAME

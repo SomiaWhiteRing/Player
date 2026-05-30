@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!--GameBrowser Activity-->
-    <string name="app_name" translatable="false">EasyRPG Player</string>
+    <string name="app_name" translatable="false">EasyRPG Player Kai</string>
     <string name="autodetect">Autodetect Region (Recommended)</string>
     <string name="west_europe">Western European</string>
     <string name="east_europe">Central/Eastern European</string>
