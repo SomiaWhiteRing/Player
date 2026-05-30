@@ -286,6 +286,10 @@ jobs:
               exit 1
             }
           done
+          test -s "$BUILD_DIR/easyrpg-player.data" || {
+            echo "Missing build output: $BUILD_DIR/easyrpg-player.data"
+            exit 1
+          }
           grep -q "createEasyRpgPlayer" "$BUILD_DIR/easyrpg-player.html"
 
       - name: Package Web artifact

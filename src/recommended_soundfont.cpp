@@ -28,6 +28,11 @@
 #include <cstdint>
 #include <ios>
 
+#ifdef EMSCRIPTEN
+namespace {
+	constexpr const char* kEmscriptenPath = "/builtin/recommended.sf2";
+}
+#else
 namespace EmbeddedResources {
 	extern const uint8_t recommended_soundfont[];
 	extern const std::size_t recommended_soundfont_size;
@@ -58,12 +63,21 @@ namespace {
 		return ok;
 	}
 }
+#endif
 
 std::string RecommendedSoundFont::GetPath() {
 	if (!Player::player_config.extra_recommended_soundfont.Get()) {
 		return {};
 	}
 
+#ifdef EMSCRIPTEN
+	if (FileFinder::Root().Exists(kEmscriptenPath)) {
+		return kEmscriptenPath;
+	}
+
+	Output::Warning("Could not find built-in SoundFont");
+	return {};
+#else
 	if (exported && !cached_path.empty()) {
 		return cached_path;
 	}
@@ -84,10 +98,13 @@ std::string RecommendedSoundFont::GetPath() {
 
 	Output::Warning("Could not export built-in SoundFont");
 	return {};
+#endif
 }
 
 void RecommendedSoundFont::Refresh() {
+#ifndef EMSCRIPTEN
 	cached_path.clear();
 	exported = false;
+#endif
 	MidiDecoder::ChangeFluidsynthSoundfont(Audio().GetFluidsynthSoundfont());
 }

@@ -14,14 +14,18 @@ include(PlayerBuildType)
 include(PlayerMisc)
 include(GetGitRevisionDescription)
 
+set(PLAYER_RECOMMENDED_SOUNDFONT_FILE "${CMAKE_CURRENT_SOURCE_DIR}/resources/soundfonts/recommended.sf2")
+
 if(WIN32)
 	set(PLAYER_PYTHON_EXECUTABLE "py" CACHE STRING "Python interpreter used by build helper scripts")
 else()
 	set(PLAYER_PYTHON_EXECUTABLE "python3" CACHE STRING "Python interpreter used by build helper scripts")
 endif()
 
-set(PLAYER_RECOMMENDED_SOUNDFONT_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/generated/recommended_soundfont_data.cpp")
-set_source_files_properties(${PLAYER_RECOMMENDED_SOUNDFONT_SOURCE} PROPERTIES GENERATED TRUE)
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+	set(PLAYER_RECOMMENDED_SOUNDFONT_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/generated/recommended_soundfont_data.cpp")
+	set_source_files_properties(${PLAYER_RECOMMENDED_SOUNDFONT_SOURCE} PROPERTIES GENERATED TRUE)
+endif()
 
 # Dependencies provided by CMake Presets
 option(PLAYER_FIND_ROOT_PATH_APPEND "When enabled the items from CMAKE_PREFIX_PATH are added to CMAKE_FIND_ROOT_PATH. Works around problematic CMake Toolchain files" OFF)
@@ -507,18 +511,20 @@ add_library(${PROJECT_NAME} OBJECT
 # Include directories
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-add_custom_command(
-	OUTPUT ${PLAYER_RECOMMENDED_SOUNDFONT_SOURCE}
-	COMMAND ${PLAYER_PYTHON_EXECUTABLE}
-		${CMAKE_CURRENT_SOURCE_DIR}/builds/cmake/embed_binary.py
-		${CMAKE_CURRENT_SOURCE_DIR}/resources/soundfonts/recommended.sf2
-		${PLAYER_RECOMMENDED_SOUNDFONT_SOURCE}
-		EmbeddedResources
-		recommended_soundfont
-	DEPENDS
-		${CMAKE_CURRENT_SOURCE_DIR}/builds/cmake/embed_binary.py
-		${CMAKE_CURRENT_SOURCE_DIR}/resources/soundfonts/recommended.sf2
-	VERBATIM)
+if(PLAYER_RECOMMENDED_SOUNDFONT_SOURCE)
+	add_custom_command(
+		OUTPUT ${PLAYER_RECOMMENDED_SOUNDFONT_SOURCE}
+		COMMAND ${PLAYER_PYTHON_EXECUTABLE}
+			${CMAKE_CURRENT_SOURCE_DIR}/builds/cmake/embed_binary.py
+			${PLAYER_RECOMMENDED_SOUNDFONT_FILE}
+			${PLAYER_RECOMMENDED_SOUNDFONT_SOURCE}
+			EmbeddedResources
+			recommended_soundfont
+		DEPENDS
+			${CMAKE_CURRENT_SOURCE_DIR}/builds/cmake/embed_binary.py
+			${PLAYER_RECOMMENDED_SOUNDFONT_FILE}
+		VERBATIM)
+endif()
 
 # Optimize floating point math functions into intrinsics and don't check or set errno (i.e. sqrt(-1))
 if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
@@ -1244,6 +1250,7 @@ if(PLAYER_BUILD_EXECUTABLE AND ${PLAYER_TARGET_PLATFORM} MATCHES "^SDL.*$" AND N
 		# Do not confuse this with our own -DUSE_SDL
 		# Prevent Emscripten from pulling in bundled SDL headers that break the build
 		target_compile_options(${PROJECT_NAME} PUBLIC "-sUSE_SDL=0")
+		target_compile_definitions(${PROJECT_NAME} PUBLIC EMSCRIPTEN=1)
 
 		set(PLAYER_JS_PREJS "${CMAKE_CURRENT_SOURCE_DIR}/resources/emscripten/emscripten-pre.js")
 		set(PLAYER_JS_POSTJS "${CMAKE_CURRENT_SOURCE_DIR}/resources/emscripten/emscripten-post.js")
@@ -1262,6 +1269,8 @@ if(PLAYER_BUILD_EXECUTABLE AND ${PLAYER_TARGET_PLATFORM} MATCHES "^SDL.*$" AND N
 			set_target_properties(${EXE_NAME} PROPERTIES SUFFIX ".html")
 			set_property(TARGET ${EXE_NAME} APPEND_STRING PROPERTY LINK_FLAGS " --shell-file ${PLAYER_JS_SHELL}")
 		endif()
+
+		set_property(TARGET ${EXE_NAME} APPEND_STRING PROPERTY LINK_FLAGS " --preload-file ${PLAYER_RECOMMENDED_SOUNDFONT_FILE}@/builtin/recommended.sf2")
 
 		target_compile_options(${PROJECT_NAME} PUBLIC -fno-exceptions)
 

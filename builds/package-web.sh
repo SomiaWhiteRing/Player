@@ -13,6 +13,9 @@ ARTIFACT_PATH="$(cd "$ARTIFACT_DIR" && pwd)/$ASSET_NAME"
 cp "$BUILD_DIR/easyrpg-player.html" "$PACKAGE_DIR/index.html"
 cp "$BUILD_DIR/easyrpg-player.js" "$PACKAGE_DIR/"
 cp "$BUILD_DIR/easyrpg-player.wasm" "$PACKAGE_DIR/"
+if [ -f "$BUILD_DIR/easyrpg-player.data" ]; then
+	cp "$BUILD_DIR/easyrpg-player.data" "$PACKAGE_DIR/"
+fi
 
 cat > "$PACKAGE_DIR/README.txt" <<'EOF'
 EasyRPG Player Kai web build.
