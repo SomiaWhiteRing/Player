@@ -27,6 +27,7 @@ env:
   RELEASE_TITLE: Nightly
   WINDOWS_ASSET_NAME: Player.exe
   WEB_ASSET_NAME: EasyRPG-Player-Kai-nightly-web.zip
+  ANDROID_ASSET_NAME: EasyRPG-Player-Kai-nightly-android-debug.apk
   LEGACY_WINDOWS_ARCHIVE_NAME: EasyRPG-Player-Kai-nightly-windows-x64.zip
 
 jobs:
@@ -310,12 +311,141 @@ jobs:
           path: ${{ steps.package.outputs.artifact_path }}
           if-no-files-found: error
 
+  android:
+    name: Build Android Nightly
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        shell: bash
+    env:
+      BUILDSCRIPTS_DIR: ${{ github.workspace }}/external/buildscripts
+      ANDROID_WORK_DIR: ${{ github.workspace }}/external/buildscripts/android
+      ANDROID_ABIS: armeabi-v7a,arm64-v8a,x86,x86_64
+      ANDROID_SDK_ROOT: ${{ github.workspace }}/external/buildscripts/android/android-sdk
+      ANDROID_HOME: ${{ github.workspace }}/external/buildscripts/android/android-sdk
+
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.git-ref == ''
+        with:
+          fetch-depth: 0
+
+      - name: Clone repository (custom ref)
+        uses: actions/checkout@v4
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.git-ref != ''
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.git-ref }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Install host dependencies
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            autoconf automake bash build-essential ca-certificates ccache cmake curl \
+            git libtool make meson ninja-build patch perl pkg-config python3 ruby unzip zip
+
+      - name: Clone EasyRPG buildscripts
+        run: |
+          mkdir -p external
+          if [ ! -d "$BUILDSCRIPTS_DIR/.git" ]; then
+            rm -rf "$BUILDSCRIPTS_DIR"
+            git clone --depth 1 https://github.com/EasyRPG/buildscripts.git "$BUILDSCRIPTS_DIR"
+          fi
+          sed -i \
+            -e '/extras;android;m2repository/d' \
+            -e '/extras;google;m2repository/d' \
+            "$ANDROID_WORK_DIR/1_download_library.sh"
+
+      - name: Restore Android toolchain cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.ANDROID_WORK_DIR }}/android-sdk
+            ${{ env.ANDROID_WORK_DIR }}/*-toolchain
+          key: easyrpg-android-toolchain-${{ runner.os }}-ndk-21.4.7075529-2026-05-30
+
+      - name: Prepare EasyRPG Android toolchain
+        run: |
+          cd "$ANDROID_WORK_DIR"
+
+          needs_toolchain=0
+          for abi in armeabi-v7a arm64-v8a x86 x86_64; do
+            if [ ! -f "$abi-toolchain/lib/cmake/liblcf/liblcf-config.cmake" ]; then
+              needs_toolchain=1
+            fi
+          done
+
+          if [ ! -x android-sdk/cmdline-tools/latest/bin/sdkmanager ] || [ "$needs_toolchain" -eq 1 ]; then
+            BUILD_LIBLCF=1 bash ./1_download_library.sh
+            needs_toolchain=1
+          fi
+
+          yes | android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses >/dev/null || true
+          yes | android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root="$ANDROID_SDK_ROOT" \
+            "platforms;android-36" \
+            "build-tools;36.0.0"
+
+          if [ "$needs_toolchain" -eq 1 ]; then
+            BUILD_LIBLCF=1 bash ./2_build_toolchain.sh
+            bash ./3_cleanup.sh
+          fi
+
+      - name: Build Android APK
+        run: |
+          cd builds/android
+          chmod +x ./gradlew
+          ./gradlew \
+            -PtoolchainDirs="$ANDROID_WORK_DIR" \
+            -PABI_FILTERS_DEBUG="$ANDROID_ABIS" \
+            assembleDebug
+
+      - name: Stage Android APK
+        id: package
+        run: |
+          artifact_dir="$RUNNER_TEMP/nightly-artifacts"
+          asset_path="$artifact_dir/$ANDROID_ASSET_NAME"
+          apk_path="builds/android/app/build/outputs/apk/debug/app-debug.apk"
+
+          test -s "$apk_path" || {
+            echo "Missing build output: $apk_path"
+            exit 1
+          }
+          for abi in armeabi-v7a arm64-v8a x86 x86_64; do
+            unzip -l "$apk_path" "lib/$abi/libeasyrpg_android.so" | grep -q "lib/$abi/libeasyrpg_android.so" || {
+              echo "Missing Android native library for $abi in $apk_path"
+              exit 1
+            }
+          done
+
+          rm -rf "$artifact_dir"
+          mkdir -p "$artifact_dir"
+          cp "$apk_path" "$asset_path"
+
+          echo "artifact_path=$asset_path" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-android
+          path: ${{ steps.package.outputs.artifact_path }}
+          if-no-files-found: error
+
   publish:
     name: Publish Nightly
     runs-on: ubuntu-24.04
     needs:
       - windows
       - web
+      - android
     defaults:
       run:
         shell: bash
@@ -337,9 +467,11 @@ jobs:
       - name: Capture metadata
         id: meta
         run: |
-          echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          echo "commit_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
-          echo "commit_subject=$(git log -1 --pretty=%s)" >> "$GITHUB_OUTPUT"
+          {
+            echo "commit_sha=$(git rev-parse HEAD)"
+            echo "commit_short=$(git rev-parse --short HEAD)"
+            echo "commit_subject=$(git log -1 --pretty=%s)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -371,6 +503,7 @@ jobs:
           - Artifacts:
             - $WINDOWS_ASSET_NAME built for Windows x64
             - $WEB_ASSET_NAME built for Web/Emscripten
+            - $ANDROID_ASSET_NAME built for Android
           EOF
 
           echo "notes_file=$notes_file" >> "$GITHUB_OUTPUT"
@@ -397,6 +530,7 @@ jobs:
         run: |
           windows_asset="$RUNNER_TEMP/nightly-assets/nightly-windows/$WINDOWS_ASSET_NAME"
           web_asset="$RUNNER_TEMP/nightly-assets/nightly-web/$WEB_ASSET_NAME"
+          android_asset="$RUNNER_TEMP/nightly-assets/nightly-android/$ANDROID_ASSET_NAME"
 
           test -s "$windows_asset" || {
             echo "Missing release asset: $windows_asset"
@@ -406,7 +540,11 @@ jobs:
             echo "Missing release asset: $web_asset"
             exit 1
           }
+          test -s "$android_asset" || {
+            echo "Missing release asset: $android_asset"
+            exit 1
+          }
 
           gh release delete-asset "$NIGHTLY_TAG" "$LEGACY_WINDOWS_ARCHIVE_NAME" --yes >/dev/null 2>&1 || true
           gh release delete-asset "$NIGHTLY_TAG" "$LEGACY_WINDOWS_ARCHIVE_NAME.sha256" --yes >/dev/null 2>&1 || true
-          gh release upload "$NIGHTLY_TAG" "$windows_asset" "$web_asset" --clobber
+          gh release upload "$NIGHTLY_TAG" "$windows_asset" "$web_asset" "$android_asset" --clobber

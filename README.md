@@ -2,7 +2,7 @@
 
 EasyRPG Player 的苍旻白轮个人魔改造版。基于 EasyRPG Player 0.8.1.1。
 
-当前维护 Windows 11 x64 和 Web/Emscripten 版。
+当前维护 Windows 11 x64、Web/Emscripten 和 Android 版。
 软件本身的功能请参阅[官方项目](https://easyrpg.org/)说明。
 
 ## 主要改动
@@ -90,3 +90,12 @@ bash ./builds/package-web.sh
 ```
 
 Web zip 需要通过 HTTP 服务访问。游戏数据放在 `games/default/`，并使用 `resources/emscripten/indexgen.php` 生成 `index.json`。
+
+Android 版使用 `builds/android` 下的 Gradle 工程：
+
+```bash
+cd builds/android
+./gradlew -PtoolchainDirs="/path/to/buildscripts/android" assembleDebug
+```
+
+Nightly Action 上传的是 debug-signed APK，方便直接安装测试；正式 release 签名需要另行配置 keystore。
