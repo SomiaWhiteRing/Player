@@ -319,8 +319,10 @@ jobs:
         shell: bash
     env:
       BUILDSCRIPTS_DIR: ${{ github.workspace }}/external/buildscripts
+      BUILDSCRIPTS_REF: e32f89b02864dbbca81d317575839668f18e7f57
       ANDROID_WORK_DIR: ${{ github.workspace }}/external/buildscripts/android
       ANDROID_ABIS: armeabi-v7a,arm64-v8a,x86,x86_64
+      ANDROID_NDK_VERSION: 28.2.13676358
       ANDROID_SDK_ROOT: ${{ github.workspace }}/external/buildscripts/android/android-sdk
       ANDROID_HOME: ${{ github.workspace }}/external/buildscripts/android/android-sdk
 
@@ -358,12 +360,19 @@ jobs:
           mkdir -p external
           if [ ! -d "$BUILDSCRIPTS_DIR/.git" ]; then
             rm -rf "$BUILDSCRIPTS_DIR"
-            git clone --depth 1 https://github.com/EasyRPG/buildscripts.git "$BUILDSCRIPTS_DIR"
+            git clone https://github.com/EasyRPG/buildscripts.git "$BUILDSCRIPTS_DIR"
           fi
+          git -C "$BUILDSCRIPTS_DIR" fetch --depth 1 origin "$BUILDSCRIPTS_REF"
+          git -C "$BUILDSCRIPTS_DIR" checkout --force FETCH_HEAD
           sed -i \
             -e '/extras;android;m2repository/d' \
             -e '/extras;google;m2repository/d' \
             "$ANDROID_WORK_DIR/1_download_library.sh"
+          sed -i \
+            -e "s/ndk;[0-9.][0-9.]*/ndk;$ANDROID_NDK_VERSION/g" \
+            -e "s#ndk/[0-9.][0-9.]*#ndk/$ANDROID_NDK_VERSION#g" \
+            "$ANDROID_WORK_DIR/1_download_library.sh" \
+            "$ANDROID_WORK_DIR/2_build_toolchain.sh"
 
       - name: Restore Android toolchain cache
         uses: actions/cache@v4
@@ -371,26 +380,45 @@ jobs:
           path: |
             ${{ env.ANDROID_WORK_DIR }}/android-sdk
             ${{ env.ANDROID_WORK_DIR }}/*-toolchain
-          key: easyrpg-android-toolchain-${{ runner.os }}-ndk-21.4.7075529-2026-05-30
+          key: easyrpg-android-toolchain-${{ runner.os }}-${{ env.BUILDSCRIPTS_REF }}-ndk-${{ env.ANDROID_NDK_VERSION }}-2026-05-31-sdl3-v1
 
       - name: Prepare EasyRPG Android toolchain
         run: |
           cd "$ANDROID_WORK_DIR"
 
+          run_sdkmanager() {
+            set +o pipefail
+            yes | android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "$@"
+            local sdkmanager_status=${PIPESTATUS[1]}
+            set -o pipefail
+            return "$sdkmanager_status"
+          }
+
+          is_toolchain_complete() {
+            local abi="$1"
+            [ -f "$abi-toolchain/lib/cmake/liblcf/liblcf-config.cmake" ]
+          }
+
           needs_toolchain=0
           for abi in armeabi-v7a arm64-v8a x86 x86_64; do
-            if [ ! -f "$abi-toolchain/lib/cmake/liblcf/liblcf-config.cmake" ]; then
+            if ! is_toolchain_complete "$abi"; then
+              echo "Android dependency toolchain is missing required files for $abi; rebuilding."
               needs_toolchain=1
             fi
           done
 
           if [ ! -x android-sdk/cmdline-tools/latest/bin/sdkmanager ] || [ "$needs_toolchain" -eq 1 ]; then
+            rm -rf android-sdk \
+              armeabi-v7a-toolchain \
+              arm64-v8a-toolchain \
+              x86-toolchain \
+              x86_64-toolchain
             BUILD_LIBLCF=1 bash ./1_download_library.sh
             needs_toolchain=1
           fi
 
-          yes | android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses >/dev/null || true
-          yes | android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root="$ANDROID_SDK_ROOT" \
+          run_sdkmanager --licenses >/dev/null || true
+          run_sdkmanager \
             "platforms;android-36" \
             "build-tools;36.0.0"
 
@@ -399,6 +427,14 @@ jobs:
             bash ./3_cleanup.sh
           fi
 
+          for abi in armeabi-v7a arm64-v8a x86 x86_64; do
+            if ! is_toolchain_complete "$abi"; then
+              echo "::error::Android dependency toolchain is incomplete for $abi after build."
+              find "$abi-toolchain" -maxdepth 4 -type f -name 'liblcf-config.cmake' -print || true
+              exit 1
+            fi
+          done
+
       - name: Build Android APK
         run: |
           cd builds/android
@@ -406,6 +442,7 @@ jobs:
           ./gradlew \
             -PtoolchainDirs="$ANDROID_WORK_DIR" \
             -PABI_FILTERS_DEBUG="$ANDROID_ABIS" \
+            -PcmakeOptions="-DPLAYER_TARGET_PLATFORM=SDL3" \
             assembleDebug
 
       - name: Stage Android APK

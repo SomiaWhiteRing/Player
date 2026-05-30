@@ -29,7 +29,7 @@
 #  include <dwmapi.h>
 #elif defined(__ANDROID__)
 #  include <jni.h>
-#  include <SDL_system.h>
+#  include <SDL3/SDL_system.h>
 #elif defined(EMSCRIPTEN)
 #  include <emscripten.h>
 #elif defined(__WIIU__)
