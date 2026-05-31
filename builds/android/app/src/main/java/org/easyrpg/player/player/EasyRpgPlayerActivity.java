@@ -29,6 +29,7 @@ import android.content.ActivityNotFoundException;
 import android.content.ClipDescription;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.res.AssetManager;
 import android.content.res.Configuration;
 import android.graphics.Insets;
@@ -46,6 +47,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
+import android.view.WindowManager;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.window.OnBackInvokedDispatcher;
@@ -149,10 +151,7 @@ public class EasyRpgPlayerActivity extends SDLActivity implements NavigationView
         NavigationView navigationView = findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
 
-        // Screen orientation
-        if (SettingsManager.isForcedLandscape()) {
-            this.setOrientationBis(0, 0, false, "LandscapeRight|LandscapeLeft");
-        }
+        applyRequestedOrientation();
 
         // Put the gameScreen
         mLayout = findViewById(R.id.main_layout);
@@ -163,6 +162,7 @@ public class EasyRpgPlayerActivity extends SDLActivity implements NavigationView
         }
         mLayout.addView(mSurface);
 
+        applyFullscreenMode();
         updateScreenPosition();
 
         if (Build.VERSION.SDK_INT >= 35) {
@@ -203,8 +203,17 @@ public class EasyRpgPlayerActivity extends SDLActivity implements NavigationView
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
 
+        applyFullscreenMode();
         updateScreenPosition();
         showInputLayout();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        applyRequestedOrientation();
+        applyFullscreenMode();
+        updateScreenPosition();
     }
 
     @Override
@@ -359,7 +368,40 @@ public class EasyRpgPlayerActivity extends SDLActivity implements NavigationView
             return;
         }
 
+        if (SettingsManager.isForcedLandscape()) {
+            applyRequestedOrientation();
+            return;
+        }
+
         super.setOrientationBis(w, h, resizable, hint);
+    }
+
+    private void applyRequestedOrientation() {
+        if (SettingsManager.isForcedLandscape()) {
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE);
+        } else {
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_FULL_USER);
+        }
+    }
+
+    public void applyFullscreenMode() {
+        if (!SettingsManager.isFullscreen()) {
+            getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_VISIBLE);
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+            return;
+        }
+
+        int flags = View.SYSTEM_UI_FLAG_FULLSCREEN |
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
+
+        getWindow().getDecorView().setSystemUiVisibility(flags);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
     }
 
     /**
@@ -486,9 +528,10 @@ public class EasyRpgPlayerActivity extends SDLActivity implements NavigationView
                 RelativeLayout.LayoutParams.MATCH_PARENT,
                 RelativeLayout.LayoutParams.MATCH_PARENT);
 
-        params.topMargin = topInset;
+        params.topMargin = SettingsManager.isFullscreen() ? 0 : topInset;
         params.leftMargin = 0;
         mSurface.setLayoutParams(params);
+        mSurface.requestLayout();
     }
 
     /**
@@ -506,6 +549,8 @@ public class EasyRpgPlayerActivity extends SDLActivity implements NavigationView
     @Override
     public void onRestart() {
         super.onRestart();
+        applyRequestedOrientation();
+        applyFullscreenMode();
         updateScreenPosition();
         showInputLayout();
     }

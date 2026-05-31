@@ -21,6 +21,7 @@ public class EasyRpgSurface extends SDLSurface {
         // SDL uses the surfaceChanged event to detect rotations instead
         super.surfaceChanged(holder, format, width, height);
 
+        activity.applyFullscreenMode();
         activity.updateScreenPosition();
     }
 }
