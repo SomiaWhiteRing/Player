@@ -444,7 +444,19 @@ jobs:
             -PABI_FILTERS_DEBUG="$ANDROID_ABIS" \
             -PVERSION_CODE_OVERRIDE="$((9778000 + GITHUB_RUN_NUMBER))" \
             -PcmakeOptions="-DPLAYER_TARGET_PLATFORM=SDL3" \
-            assembleDebug
+            assembleDebug \
+            --stacktrace
+
+      - name: Inspect Android packaging inputs
+        if: always()
+        run: |
+          cd builds/android
+          echo "APK outputs:"
+          find app/build/outputs/apk -maxdepth 4 -type f -print -exec ls -lh {} \; 2>/dev/null || true
+          echo "Compressed assets:"
+          find app/build/intermediates/compressed_assets -type f -name '*recommended*' -print -exec unzip -lv {} \; 2>/dev/null || true
+          echo "Native libraries:"
+          find app/build/intermediates -path '*native_libs*' -type f \( -name '*.so' -o -name '*.json' \) -print -exec ls -lh {} \; 2>/dev/null || true
 
       - name: Stage Android APK
         id: package

@@ -8,6 +8,9 @@ android {
     buildFeatures {
         prefab true
     }
+    androidResources {
+        noCompress += ['sf2']
+    }
     defaultConfig {
         applicationId "org.easyrpg.player.kai"
         minSdkVersion 23
