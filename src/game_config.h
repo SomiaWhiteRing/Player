@@ -83,13 +83,19 @@ namespace ConfigEnum {
 #endif
 
 struct Game_ConfigPlayer {
+#if defined(__ANDROID__)
+	static constexpr bool kDefaultExtraMouseSupport = false;
+#else
+	static constexpr bool kDefaultExtraMouseSupport = true;
+#endif
+
 	StringConfigParam autobattle_algo{ "", "", "", "", "" };
 	StringConfigParam enemyai_algo{ "", "", "", "", "" };
 	BoolConfigParam settings_autosave{ "Save settings on exit", "Automatically save the settings on exit", "Player", "SettingsAutosave", false };
 	BoolConfigParam settings_in_title{ "Show settings on title screen", "Display settings menu item on the title screen", "Player", "SettingsInTitle", false };
 	BoolConfigParam settings_in_menu{ "Show settings in menu", "Display settings menu item on the menu screen", "Player", "SettingsInMenu", false };
 	BoolConfigParam extra_message_history{ "对话历史记录", "按下~键/鼠标滚轮上滚查看对话历史", "Player", "ExtraMessageHistory", true };
-	BoolConfigParam extra_mouse_support{ "鼠标功能补完", "添加符合Galgame直觉的鼠标支持", "Player", "ExtraMouseSupport", true };
+	BoolConfigParam extra_mouse_support{ "鼠标功能补完", "添加符合Galgame直觉的鼠标支持", "Player", "ExtraMouseSupport", kDefaultExtraMouseSupport };
 	BoolConfigParam extra_movie_playback{ "兼容视频播放", "使用平台内置解码器播放游戏中插入的视频", "Player", "ExtraMoviePlayback", true };
 	BoolConfigParam extra_recommended_soundfont{ "MIDI音效改良", "使用作者推荐的SoundFont", "Player", "ExtraRecommendedSoundFont", true };
 	BoolConfigParam extra_name_input_choices{ "输入解谜选项化", "为输入式解谜提供候选选项", "Player", "ExtraNameInputChoices", true };
