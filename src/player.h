@@ -340,6 +340,12 @@ namespace Player {
 	/** Debug flag, if true will run game in debug mode. */
 	extern bool debug_flag;
 
+	/** Debug flag requested by the startup configuration. */
+	extern bool startup_debug_flag;
+
+	/** Recomputes the effective debug flag from startup and player settings. */
+	void UpdateDebugFlag();
+
 	/** Hide Title flag, if true title scene will run without image and music. */
 	extern bool hide_title_flag;
 

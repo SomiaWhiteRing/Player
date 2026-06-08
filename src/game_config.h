@@ -100,6 +100,7 @@ struct Game_ConfigPlayer {
 	BoolConfigParam extra_recommended_soundfont{ "MIDI音效改良", "使用作者推荐的SoundFont", "Player", "ExtraRecommendedSoundFont", true };
 	BoolConfigParam extra_name_input_choices{ "输入解谜选项化", "为输入式解谜提供候选选项", "Player", "ExtraNameInputChoices", true };
 	BoolConfigParam extra_hide_maniac_logs{ "隐藏Maniac日志", "隐藏 Maniac 相关诊断提示", "Player", "ExtraHideManiacLogs", true };
+	BoolConfigParam extra_force_testplay{ "强制TestPlay", "强制启用EasyRPG的调试模式", "Player", "ExtraForceTestPlay", true };
 	EnumConfigParam<ConfigEnum::StartupLogos, 3> show_startup_logos{
 		"Startup Logos", "Logos that are displayed on startup", "Player", "StartupLogos", ConfigEnum::StartupLogos::Custom,
 		Utils::MakeSvArray("None", "Custom", "All"),

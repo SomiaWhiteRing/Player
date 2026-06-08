@@ -484,6 +484,10 @@ void Window_Settings::RefreshExtra() {
 	});
 	AddOption(cfg.extra_name_input_choices, [&cfg]() { cfg.extra_name_input_choices.Toggle(); });
 	AddOption(cfg.extra_hide_maniac_logs, [&cfg]() { cfg.extra_hide_maniac_logs.Toggle(); });
+	AddOption(cfg.extra_force_testplay, [&cfg]() {
+		cfg.extra_force_testplay.Toggle();
+		Player::UpdateDebugFlag();
+	});
 }
 
 void Window_Settings::RefreshEngineFont(bool mincho) {

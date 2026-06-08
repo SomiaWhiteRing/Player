@@ -202,7 +202,8 @@ void LibretroUi::UpdateVariables() {
 	static struct retro_variable debug = { Options::debug_mode, nullptr };
 
 	LibretroUi::environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &debug);
-	Player::debug_flag = strcmp(debug.value, "Enabled") == 0;
+	Player::startup_debug_flag = strcmp(debug.value, "Enabled") == 0;
+	Player::UpdateDebugFlag();
 }
 
 #if defined(USE_JOYSTICK) && defined(SUPPORT_JOYSTICK)

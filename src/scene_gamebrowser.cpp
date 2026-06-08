@@ -37,7 +37,7 @@ Scene_GameBrowser::Scene_GameBrowser() {
 }
 
 void Scene_GameBrowser::Start() {
-	initial_debug_flag = Player::debug_flag;
+	initial_debug_flag = Player::startup_debug_flag;
 	Main_Data::game_system = std::make_unique<Game_System>();
 	Main_Data::game_system->SetSystemGraphic(CACHE_DEFAULT_BITMAP, lcf::rpg::System::Stretch_stretch, lcf::rpg::System::Font_gothic);
 	stack.push_back({ FileFinder::Game(), 0 });
@@ -67,7 +67,8 @@ void Scene_GameBrowser::Continue(SceneType /* prev_scene */) {
 	Main_Data::game_system = std::make_unique<Game_System>();
 	Main_Data::game_system->SetSystemGraphic(CACHE_DEFAULT_BITMAP, lcf::rpg::System::Stretch_stretch, lcf::rpg::System::Font_gothic);
 
-	Player::debug_flag = initial_debug_flag;
+	Player::startup_debug_flag = initial_debug_flag;
+	Player::UpdateDebugFlag();
 }
 
 void Scene_GameBrowser::vUpdate() {
@@ -172,7 +173,8 @@ void Scene_GameBrowser::UpdateGameListSelection() {
 		load_window->SetVisible(true);
 		game_loading = true;
 	} else if (Input::IsTriggered(Input::DEBUG_MENU) || Input::IsTriggered(Input::SHIFT)) {
-		Player::debug_flag = true;
+		Player::startup_debug_flag = true;
+		Player::UpdateDebugFlag();
 		load_window->SetVisible(true);
 		game_loading = true;
 	}

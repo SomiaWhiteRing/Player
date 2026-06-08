@@ -108,6 +108,7 @@ namespace Player {
 	bool exit_flag = false;
 	bool reset_flag = false;
 	bool debug_flag;
+	bool startup_debug_flag;
 	bool hide_title_flag;
 	int load_game_id;
 	int party_x_position;
@@ -202,6 +203,7 @@ void Player::Init(std::vector<std::string> args) {
 	Input::AddRecordingData(Input::RecordingData::CommandLine, command_line);
 
 	player_config = std::move(cfg.player);
+	UpdateDebugFlag();
 
 	last_auto_screenshot = Game_Clock::now();
 }
@@ -432,6 +434,7 @@ void Player::Exit() {
 
 Game_Config Player::ParseCommandLine() {
 	debug_flag = false;
+	startup_debug_flag = false;
 	hide_title_flag = false;
 	exit_flag = false;
 	reset_flag = false;
@@ -504,7 +507,7 @@ Game_Config Player::ParseCommandLine() {
 		}
 		if (cp.ParseNext(arg, 0, {"testplay", "--test-play"})) {
 			// Legacy RPG_RT argument - testplay
-			debug_flag = true;
+			startup_debug_flag = true;
 			continue;
 		}
 		if (cp.ParseNext(arg, 0, {"hidetitle", "--hide-title"})) {
@@ -680,6 +683,10 @@ Game_Config Player::ParseCommandLine() {
 	}
 
 	return cfg;
+}
+
+void Player::UpdateDebugFlag() {
+	debug_flag = startup_debug_flag || player_config.extra_force_testplay.Get();
 }
 
 void Player::CreateGameObjects() {
