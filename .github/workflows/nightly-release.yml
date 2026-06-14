@@ -54,35 +54,6 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.inputs.git-ref }}
 
-      - name: Capture metadata
-        id: meta
-        run: |
-          "commit_sha=$(git rev-parse HEAD)" >> $env:GITHUB_OUTPUT
-          "commit_short=$(git rev-parse --short HEAD)" >> $env:GITHUB_OUTPUT
-          "commit_subject=$(git log -1 --pretty=%s)" >> $env:GITHUB_OUTPUT
-
-      - name: Resolve CMake
-        run: |
-          $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
-          $cmakePath = ""
-
-          if (Test-Path $vswhere) {
-            $vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.CMake.Project -property installationPath
-            if ($vsPath) {
-              $candidate = Join-Path $vsPath "Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
-              if (Test-Path $candidate) {
-                $cmakePath = $candidate
-              }
-            }
-          }
-
-          if (-not $cmakePath) {
-            $cmakePath = (Get-Command cmake.exe -ErrorAction Stop).Source
-          }
-
-          & $cmakePath --version
-          "CMAKE_EXE=$cmakePath" >> $env:GITHUB_ENV
-
       - name: Restore EasyRPG Windows toolchain cache
         id: toolchain-cache
         uses: actions/cache@v4
@@ -90,131 +61,21 @@ jobs:
           path: ${{ env.BUILDSCRIPTS_DIR }}\windows\vcpkg
           key: easyrpg-windows-toolchain-${{ runner.os }}-${{ env.VCPKG_TRIPLET }}-2026-04-28
 
-      - name: Prepare EasyRPG Windows toolchain
-        run: |
-          $toolchainFile = Join-Path $env:BUILDSCRIPTS_DIR "windows\vcpkg\scripts\buildsystems\vcpkg.cmake"
-          $tripletDir = Join-Path $env:BUILDSCRIPTS_DIR "windows\vcpkg\installed\$env:VCPKG_TRIPLET"
-
-          if (-not (Test-Path $toolchainFile)) {
-            $windowsDir = Join-Path $env:BUILDSCRIPTS_DIR "windows"
-            $vcpkgDir = Join-Path $windowsDir "vcpkg"
-            $zipPath = Join-Path $env:RUNNER_TEMP "toolchain-windows.zip"
-
-            New-Item -ItemType Directory -Force -Path $windowsDir | Out-Null
-            Remove-Item $vcpkgDir -Recurse -Force -ErrorAction SilentlyContinue
-
-            curl.exe -L --fail --retry 5 --retry-delay 10 -o $zipPath $env:TOOLCHAIN_URL
-            if ($LASTEXITCODE -ne 0) {
-              throw "Failed to download $env:TOOLCHAIN_URL"
-            }
-
-            New-Item -ItemType Directory -Force -Path $vcpkgDir | Out-Null
-            tar.exe -xf $zipPath -C $vcpkgDir --strip-components=1
-            if ($LASTEXITCODE -ne 0) {
-              throw "Failed to extract $zipPath"
-            }
-          }
-
-          if (-not (Test-Path $toolchainFile)) {
-            throw "Missing vcpkg toolchain: $toolchainFile"
-          }
-          if (-not (Test-Path $tripletDir)) {
-            throw "Missing vcpkg triplet directory: $tripletDir"
-          }
-          if (-not (Test-Path (Join-Path $tripletDir "share\sdl2\SDL2Config.cmake"))) {
-            throw "Missing SDL2 package in vcpkg triplet: $tripletDir"
-          }
-
-          Get-ChildItem (Join-Path $env:BUILDSCRIPTS_DIR "windows\vcpkg\installed") -Directory |
-            Select-Object -ExpandProperty Name
-
-      - name: Clone liblcf
-        run: |
-          $libDir = Join-Path $env:GITHUB_WORKSPACE "lib"
-          $liblcfDir = Join-Path $libDir "liblcf"
-
-          New-Item -ItemType Directory -Force -Path $libDir | Out-Null
-          Remove-Item $liblcfDir -Recurse -Force -ErrorAction SilentlyContinue
-          git clone --depth 1 --branch master https://github.com/EasyRPG/liblcf.git $liblcfDir
-
-      - name: Configure
-        run: |
-          $versionSuffix = "(nightly, $(Get-Date -AsUTC -Format 'yyyy-MM-dd'))"
-          $versionArg = "-DPLAYER_VERSION_APPEND=$versionSuffix"
-          $tripletArg = "-DVCPKG_TARGET_TRIPLET=$($env:VCPKG_TRIPLET)"
-          $configureOutput = & $env:CMAKE_EXE -S . -B $env:BUILD_DIR `
-            -G "Visual Studio 17 2022" -A x64 `
-            -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_TOOLCHAIN_FILE="$env:BUILDSCRIPTS_DIR\windows\vcpkg\scripts\buildsystems\vcpkg.cmake" `
-            $tripletArg `
-            -DPLAYER_BUILD_LIBLCF=ON `
-            -DPLAYER_ENABLE_TESTS=OFF `
-            $versionArg 2>&1
-          $configureExit = $LASTEXITCODE
-
-          $configureOutput | ForEach-Object { $_ }
-
-          if ($configureExit -ne 0) {
-            Get-ChildItem $env:BUILD_DIR -Recurse -Include CMakeOutput.log,CMakeError.log -ErrorAction SilentlyContinue |
-              ForEach-Object {
-                Write-Host "::group::$($_.FullName)"
-                Get-Content $_.FullName -ErrorAction SilentlyContinue
-                Write-Host "::endgroup::"
-              }
-
-            exit $configureExit
-          }
-
-      - name: Build
-        run: |
-          & $env:CMAKE_EXE --build $env:BUILD_DIR --config Release --parallel
-
-      - name: Verify executable
-        run: |
-          $exePath = Join-Path $env:BUILD_DIR "Release\Player.exe"
-          if (-not (Test-Path $exePath)) {
-            throw "Missing build output: $exePath"
-          }
-
-          $dlls = Get-ChildItem (Split-Path $exePath) -Filter *.dll -File -ErrorAction SilentlyContinue
-          if ($dlls) {
-            $names = ($dlls | Select-Object -ExpandProperty Name) -join ", "
-            throw "Release build is expected to be a single-file static build, but DLLs were produced: $names"
-          }
-
-          & $exePath --version
-
-      - name: Stage nightly executable
+      - name: Package Windows nightly artifact
         id: package
         run: |
-          $artifactDir = Join-Path $env:RUNNER_TEMP "nightly-artifacts"
-          $assetPath = Join-Path $artifactDir $env:WINDOWS_ASSET_NAME
-          $exePath = Join-Path $env:BUILD_DIR "Release\Player.exe"
-
-          Remove-Item $artifactDir -Recurse -Force -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Force -Path $artifactDir | Out-Null
-
-          Copy-Item $exePath -Destination $assetPath -Force
-
-          "artifact_path=$assetPath" >> $env:GITHUB_OUTPUT
+          .\builds\ci\package-windows-nightly.ps1
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: nightly-windows
-          path: ${{ steps.package.outputs.artifact_path }}
+          path: build/artifacts/${{ env.WINDOWS_ASSET_NAME }}
           if-no-files-found: error
 
   web:
     name: Build Web Nightly
     runs-on: ubuntu-24.04
-    defaults:
-      run:
-        shell: bash
-    env:
-      BUILD_DIR: build/emscripten-release
-      BUILDSCRIPTS_DIR: ${{ github.workspace }}/external/buildscripts
-      EMSCRIPTEN_WORK_DIR: ${{ github.workspace }}/external/buildscripts/emscripten
 
     steps:
       - name: Clone repository
@@ -230,101 +91,28 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.inputs.git-ref }}
 
-      - name: Install host dependencies
-        run: |
-          export DEBIAN_FRONTEND=noninteractive
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            autoconf automake bash build-essential ca-certificates cmake curl git \
-            libtool make meson ninja-build patch perl pkg-config python3 ruby unzip zip
-
-      - name: Clone EasyRPG buildscripts
-        run: |
-          mkdir -p external
-          if [ ! -d "$BUILDSCRIPTS_DIR/.git" ]; then
-            rm -rf "$BUILDSCRIPTS_DIR"
-            git clone --depth 1 https://github.com/EasyRPG/buildscripts.git "$BUILDSCRIPTS_DIR"
-          fi
-
-      - name: Restore Emscripten toolchain cache
+      - name: Restore local Docker Web cache
         uses: actions/cache@v4
         with:
           path: |
-            ${{ env.EMSCRIPTEN_WORK_DIR }}
-          key: easyrpg-emscripten-toolchain-${{ runner.os }}-3.1.74-2026-05-29
+            external/local-docker/web
+            external/local-docker/home
+          key: easyrpg-local-docker-web-${{ runner.os }}-${{ hashFiles('builds/package-docker.ps1', 'builds/docker/package.Dockerfile', 'builds/ci/package-ubuntu-nightly.sh') }}
 
-      - name: Prepare EasyRPG Emscripten toolchain
+      - name: Package Web nightly artifact
         run: |
-          cd "$EMSCRIPTEN_WORK_DIR"
-          if [ ! -x emsdk-portable/upstream/emscripten/emcc ] || [ ! -f lib/cmake/liblcf/liblcf-config.cmake ]; then
-            BUILD_LIBLCF=1 bash ./0_build_everything.sh
-          fi
-
-      - name: Configure Web
-        run: |
-          source "$EMSCRIPTEN_WORK_DIR/emsdk-portable/emsdk_env.sh"
-          version_suffix="(nightly, $(date -u +%Y-%m-%d))"
-          cmake -S . -B "$BUILD_DIR" -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_TOOLCHAIN_FILE="$EMSCRIPTEN_WORK_DIR/emsdk-portable/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake" \
-            -DPLAYER_PREFIX_PATH_APPEND="$EMSCRIPTEN_WORK_DIR" \
-            -DPLAYER_FIND_ROOT_PATH_APPEND=ON \
-            -DPLAYER_JS_BUILD_SHELL=ON \
-            -DPLAYER_ENABLE_TESTS=OFF \
-            -DPLAYER_TARGET_PLATFORM=SDL3 \
-            -DPLAYER_VERSION_APPEND="$version_suffix"
-
-      - name: Build Web
-        run: |
-          source "$EMSCRIPTEN_WORK_DIR/emsdk-portable/emsdk_env.sh"
-          cmake --build "$BUILD_DIR" --parallel
-
-      - name: Verify Web outputs
-        run: |
-          for file in easyrpg-player.html easyrpg-player.js easyrpg-player.wasm; do
-            test -s "$BUILD_DIR/$file" || {
-              echo "Missing build output: $BUILD_DIR/$file"
-              exit 1
-            }
-          done
-          test -s "$BUILD_DIR/easyrpg-player.data" || {
-            echo "Missing build output: $BUILD_DIR/easyrpg-player.data"
-            exit 1
-          }
-          grep -q "createEasyRpgPlayer" "$BUILD_DIR/easyrpg-player.html"
-
-      - name: Package Web artifact
-        id: package
-        run: |
-          asset_path="$RUNNER_TEMP/${WEB_ASSET_NAME}"
-          BUILD_DIR="$BUILD_DIR" \
-            ARTIFACT_DIR="$RUNNER_TEMP" \
-            PACKAGE_DIR="$RUNNER_TEMP/nightly-web" \
-            ASSET_NAME="$WEB_ASSET_NAME" \
-            bash ./builds/package-web.sh
-          echo "artifact_path=$asset_path" >> "$GITHUB_OUTPUT"
+          ./builds/package-docker.ps1 web
 
       - name: Upload Web artifact
         uses: actions/upload-artifact@v4
         with:
           name: nightly-web
-          path: ${{ steps.package.outputs.artifact_path }}
+          path: build/artifacts/${{ env.WEB_ASSET_NAME }}
           if-no-files-found: error
 
   android:
     name: Build Android Nightly
     runs-on: ubuntu-24.04
-    defaults:
-      run:
-        shell: bash
-    env:
-      BUILDSCRIPTS_DIR: ${{ github.workspace }}/external/buildscripts
-      BUILDSCRIPTS_REF: e32f89b02864dbbca81d317575839668f18e7f57
-      ANDROID_WORK_DIR: ${{ github.workspace }}/external/buildscripts/android
-      ANDROID_ABIS: armeabi-v7a,arm64-v8a,x86,x86_64
-      ANDROID_NDK_VERSION: 28.2.13676358
-      ANDROID_SDK_ROOT: ${{ github.workspace }}/external/buildscripts/android/android-sdk
-      ANDROID_HOME: ${{ github.workspace }}/external/buildscripts/android/android-sdk
 
     steps:
       - name: Clone repository
@@ -340,157 +128,24 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.inputs.git-ref }}
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-          cache: gradle
-
-      - name: Install host dependencies
-        run: |
-          export DEBIAN_FRONTEND=noninteractive
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            autoconf automake bash build-essential ca-certificates ccache cmake curl \
-            git libtool make meson ninja-build patch perl pkg-config python3 ruby unzip zip
-
-      - name: Clone EasyRPG buildscripts
-        run: |
-          mkdir -p external
-          if [ ! -d "$BUILDSCRIPTS_DIR/.git" ]; then
-            rm -rf "$BUILDSCRIPTS_DIR"
-            git clone https://github.com/EasyRPG/buildscripts.git "$BUILDSCRIPTS_DIR"
-          fi
-          git -C "$BUILDSCRIPTS_DIR" fetch --depth 1 origin "$BUILDSCRIPTS_REF"
-          git -C "$BUILDSCRIPTS_DIR" checkout --force FETCH_HEAD
-          sed -i \
-            -e '/extras;android;m2repository/d' \
-            -e '/extras;google;m2repository/d' \
-            "$ANDROID_WORK_DIR/1_download_library.sh"
-          sed -i \
-            -e "s/ndk;[0-9.][0-9.]*/ndk;$ANDROID_NDK_VERSION/g" \
-            -e "s#ndk/[0-9.][0-9.]*#ndk/$ANDROID_NDK_VERSION#g" \
-            "$ANDROID_WORK_DIR/1_download_library.sh" \
-            "$ANDROID_WORK_DIR/2_build_toolchain.sh"
-
-      - name: Restore Android toolchain cache
+      - name: Restore local Docker Android cache
         uses: actions/cache@v4
         with:
           path: |
-            ${{ env.ANDROID_WORK_DIR }}/android-sdk
-            ${{ env.ANDROID_WORK_DIR }}/*-toolchain
-          key: easyrpg-android-toolchain-${{ runner.os }}-${{ env.BUILDSCRIPTS_REF }}-ndk-${{ env.ANDROID_NDK_VERSION }}-2026-05-31-sdl3-v1
+            external/local-docker/android
+            external/local-docker/gradle
+            external/local-docker/home
+          key: easyrpg-local-docker-android-${{ runner.os }}-${{ hashFiles('builds/package-docker.ps1', 'builds/docker/package.Dockerfile', 'builds/ci/package-ubuntu-nightly.sh') }}
 
-      - name: Prepare EasyRPG Android toolchain
+      - name: Package Android nightly artifact
         run: |
-          cd "$ANDROID_WORK_DIR"
-
-          run_sdkmanager() {
-            set +o pipefail
-            yes | android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "$@"
-            local sdkmanager_status=${PIPESTATUS[1]}
-            set -o pipefail
-            return "$sdkmanager_status"
-          }
-
-          is_toolchain_complete() {
-            local abi="$1"
-            [ -f "$abi-toolchain/lib/cmake/liblcf/liblcf-config.cmake" ]
-          }
-
-          needs_toolchain=0
-          for abi in armeabi-v7a arm64-v8a x86 x86_64; do
-            if ! is_toolchain_complete "$abi"; then
-              echo "Android dependency toolchain is missing required files for $abi; rebuilding."
-              needs_toolchain=1
-            fi
-          done
-
-          if [ ! -x android-sdk/cmdline-tools/latest/bin/sdkmanager ] || [ "$needs_toolchain" -eq 1 ]; then
-            rm -rf android-sdk \
-              armeabi-v7a-toolchain \
-              arm64-v8a-toolchain \
-              x86-toolchain \
-              x86_64-toolchain
-            BUILD_LIBLCF=1 bash ./1_download_library.sh
-            needs_toolchain=1
-          fi
-
-          run_sdkmanager --licenses >/dev/null || true
-          run_sdkmanager \
-            "platforms;android-36" \
-            "build-tools;36.0.0"
-
-          if [ "$needs_toolchain" -eq 1 ]; then
-            BUILD_LIBLCF=1 bash ./2_build_toolchain.sh
-            bash ./3_cleanup.sh
-          fi
-
-          for abi in armeabi-v7a arm64-v8a x86 x86_64; do
-            if ! is_toolchain_complete "$abi"; then
-              echo "::error::Android dependency toolchain is incomplete for $abi after build."
-              find "$abi-toolchain" -maxdepth 4 -type f -name 'liblcf-config.cmake' -print || true
-              exit 1
-            fi
-          done
-
-      - name: Build Android APK
-        run: |
-          cd builds/android
-          chmod +x ./gradlew
-          ./gradlew \
-            -PtoolchainDirs="$ANDROID_WORK_DIR" \
-            -PABI_FILTERS_DEBUG="$ANDROID_ABIS" \
-            -PVERSION_CODE_OVERRIDE="$((9778000 + GITHUB_RUN_NUMBER))" \
-            -PcmakeOptions="-DPLAYER_TARGET_PLATFORM=SDL3" \
-            assembleDebug \
-            --stacktrace
-
-      - name: Inspect Android packaging inputs
-        if: always()
-        run: |
-          cd builds/android
-          echo "APK outputs:"
-          find app/build/outputs/apk -maxdepth 4 -type f -print -exec ls -lh {} \; 2>/dev/null || true
-          echo "Compressed assets:"
-          find app/build/intermediates/compressed_assets -type f -name '*recommended*' -print -exec unzip -lv {} \; 2>/dev/null || true
-          echo "Native libraries:"
-          find app/build/intermediates -path '*native_libs*' -type f \( -name '*.so' -o -name '*.json' \) -print -exec ls -lh {} \; 2>/dev/null || true
-
-      - name: Stage Android APK
-        id: package
-        run: |
-          artifact_dir="$RUNNER_TEMP/nightly-artifacts"
-          asset_path="$artifact_dir/$ANDROID_ASSET_NAME"
-          apk_path="builds/android/app/build/outputs/apk/debug/app-debug.apk"
-
-          test -s "$apk_path" || {
-            echo "Missing build output: $apk_path"
-            exit 1
-          }
-          for abi in armeabi-v7a arm64-v8a x86 x86_64; do
-            unzip -l "$apk_path" "lib/$abi/libeasyrpg_android.so" | grep -q "lib/$abi/libeasyrpg_android.so" || {
-              echo "Missing Android native library for $abi in $apk_path"
-              exit 1
-            }
-          done
-          unzip -l "$apk_path" "assets/builtin/recommended.sf2" | grep -q "assets/builtin/recommended.sf2" || {
-            echo "Missing built-in SoundFont asset in $apk_path"
-            exit 1
-          }
-
-          rm -rf "$artifact_dir"
-          mkdir -p "$artifact_dir"
-          cp "$apk_path" "$asset_path"
-
-          echo "artifact_path=$asset_path" >> "$GITHUB_OUTPUT"
+          ./builds/package-docker.ps1 android
 
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
         with:
           name: nightly-android
-          path: ${{ steps.package.outputs.artifact_path }}
+          path: build/artifacts/${{ env.ANDROID_ASSET_NAME }}
           if-no-files-found: error
 
   publish:

@@ -79,39 +79,28 @@ EasyRPG Player 的苍旻白轮个人魔改造版。基于 EasyRPG Player 0.8.1.1
 
 ## 本地打包
 
-当前仓库在 Windows x64 下打包单文件 Release 版时使用：
+本地标准打包入口以 Docker Desktop 为准，和 `.github/workflows/nightly-release.yml` 共用同一套仓库内脚本，不再维护旧的本地 VS / CMake 手动 zip 流程。先启动 Docker Desktop，然后在仓库根目录运行：
 
 ```powershell
-$cmake = "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
-& $cmake --preset windows-x64-vs2022-release-local
-& $cmake --build --preset windows-x64-vs2022-release-local
-
-Remove-Item -Recurse -Force build/package/stage -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Force build/package/stage, build/artifacts | Out-Null
-Copy-Item build/windows-x64-vs2022-release-local/Release/Player.exe build/package/stage/
-Compress-Archive -Path build/package/stage/* -DestinationPath build/artifacts/EasyRPG-Player-Kai-local-windows-x64.zip -Force
+.\builds\package-docker.ps1 all
 ```
 
-打包后的 zip 可直接分发，默认输出到 `build/artifacts/`。Release preset 使用 `x64-windows-static`，发布时只需要 `Player.exe`。
+也可以只打某个平台：
 
-Web 版使用 Emscripten preset：
-
-```bash
-export EASYRPG_BUILDSCRIPTS=/path/to/buildscripts
-source "$EASYRPG_BUILDSCRIPTS/emscripten/emsdk-portable/emsdk_env.sh"
-cmake --preset emscripten-sdl3-release
-cmake --build --preset emscripten-sdl3-release
-
-bash ./builds/package-web.sh
+```powershell
+.\builds\package-docker.ps1 web
+.\builds\package-docker.ps1 android
 ```
+
+脚本会先构建本地打包镜像 `easyrpg-player-kai-package:ubuntu24.04`，再把仓库挂载到容器里的 `/workspace`，调用 `builds/ci/package-ubuntu-nightly.sh` 执行和 GitHub Workflow 相同的 Web / Android Nightly 构建、校验和打包逻辑。首次构建会下载并生成 EasyRPG 工具链，时间会比较长；后续会复用 `external/local-docker/` 下的工具链缓存。
+
+默认输出到 `build/artifacts/`：
+
+- `EasyRPG-Player-Kai-nightly-web.zip`
+- `EasyRPG-Player-Kai-nightly-android-debug.apk`
 
 Web zip 需要通过 HTTP 服务访问。游戏数据放在 `games/default/`，并使用 `resources/emscripten/indexgen.php` 生成 `index.json`。
 
-Android 版使用 `builds/android` 下的 Gradle 工程：
-
-```bash
-cd builds/android
-./gradlew -PtoolchainDirs="/path/to/buildscripts/android" assembleDebug
-```
+Windows x64 的 `Player.exe` 由 GitHub Workflow 的 `windows-2022` job 调用 `builds/ci/package-windows-nightly.ps1` 生成；它依赖 Visual Studio 2022 runner 和 `x64-windows-static` vcpkg 工具链，不在本地 Linux Docker 容器里另建一套交叉编译流程。标准分发产物以 Nightly Action 上传的 `Player.exe` 为准。
 
 Nightly Action 上传的是 debug-signed APK，方便直接安装测试；正式 release 签名需要另行配置 keystore。

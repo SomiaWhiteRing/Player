@@ -5,7 +5,7 @@
 *.cmake   text
 *.py      text
 *.rb      text
-*.sh      text
+*.sh      text eol=lf
 *.ac      text
 *.am      text
 
