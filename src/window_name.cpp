@@ -43,14 +43,16 @@ void Window_Name::Set(std::string text) {
 	Refresh();
 }
 
-void Window_Name::Append(std::string_view text) {
+bool Window_Name::Append(std::string_view text) {
 	// Avoid string copies by reusing the buffer in name
 	name.append(text.begin(), text.end());
 	if (Text::GetSize(*Font::Default(), name).width <= (12 * 6)) {
 		Refresh();
+		return true;
 	} else {
 		Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Buzzer));
 		name.resize(name.size() - text.size());
+		return false;
 	}
 }
 

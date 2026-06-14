@@ -34,7 +34,7 @@ const char* const Window_Keyboard::DONE_ZH_CN = "<确定>";
 const char* const Window_Keyboard::DONE_ZH_TW = "<確定>";
 
 /*
- * Hiragana <-> Katakana; Hangul 1 <-> Hangul 2; Simp. Chinese 1 <-> Simp. Chinese 2;
+ * Hiragana <-> Katakana; Hangul 1 <-> Hangul 2; Simp. Chinese 1 <-> Simp. Chinese 2 <-> Pinyin;
  * Trad. Chinese 1 <-> Trad. Chinese 2; Rus.Cyrillic <-> Rus.Latin; letter <-> symbol
  */
 
@@ -122,6 +122,20 @@ Keyboard_Layout Window_Keyboard::layouts[Window_Keyboard::MODE_END] = {
 			{"威", "维", "韦", "卫", "温", "沃", "乌", "西", "希", "夏"},
 			{"辛", "修", "休", "雅", "亚", "林", "琳", "留", "隆", "鲁"},
 			{"伊", "英", "尤", "则", "扎", "", NEXT_PAGE, "", DONE}
+		}
+	},
+	{
+		"<拼音>",
+		{ // Pinyin input
+			{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J"},
+			{"K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"},
+			{"U", "V", "W", "X", "Y", "Z"},
+			{},
+			{"1", "2", "3", "4"},
+			{SPACE},
+			{},
+			{},
+			{"" , "" , "" , "" , "" , "" , NEXT_PAGE, "", DONE}
 		}
 	},
 	{

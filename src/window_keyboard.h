@@ -46,6 +46,7 @@ public:
 		Hangul2,
 		ZhCn1,
 		ZhCn2,
+		Pinyin,
 		ZhTw1,
 		ZhTw2,
 		RuCyrl,

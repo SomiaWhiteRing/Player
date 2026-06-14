@@ -24,6 +24,7 @@
 #include "window_name.h"
 #include "window_face.h"
 #include "window_keyboard.h"
+#include "window_pinyin.h"
 
 /**
  * Scene_Item class.
@@ -58,13 +59,22 @@ private:
 	void EnterChoiceMode();
 	void EnterKeyboardInputMode();
 	std::vector<std::string> GetChoiceLabels() const;
+	bool IsPinyinMode() const;
+	void RefreshPinyinWindow();
+	void ResetPinyinInput();
+	void AppendPinyinLetter(std::string_view key);
+	bool CommitPinyinSelection();
+	bool SelectPinyinCandidateByNumber(std::string_view key);
+	bool HandleRawPinyinInput();
 
 	Game_Actor& actor;
 	Mode mode = Mode::Input;
 	const char* keyboard_done = Window_Keyboard::DONE;
 	std::vector<NameInputCandidate> candidates;
+	std::string pinyin_query;
 
 	std::unique_ptr<Window_Keyboard> kbd_window;
+	std::unique_ptr<Window_Pinyin> pinyin_window;
 	std::unique_ptr<Window_Command> choice_window;
 	std::unique_ptr<Window_Name> name_window;
 	std::unique_ptr<Window_Face> face_window;

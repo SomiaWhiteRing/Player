@@ -242,6 +242,7 @@ add_library(${PROJECT_NAME} OBJECT
 	src/generated/bitmapfont_wqy.h
 	src/generated/logo.h
 	src/generated/logo2.h
+	src/generated/pinyin_simp_dict.h
 	src/generated/shinonome_gothic.h
 	src/generated/shinonome_mincho.h
 	src/graphics.cpp
@@ -284,6 +285,8 @@ add_library(${PROJECT_NAME} OBJECT
 	src/output.h
 	src/pending_message.h
 	src/pending_message.cpp
+	src/pinyin_input.cpp
+	src/pinyin_input.h
 	src/pixel_format.h
 	src/pixman_image_ptr.h
 	src/plane.cpp
@@ -472,6 +475,8 @@ add_library(${PROJECT_NAME} OBJECT
 	src/window_numberinput.h
 	src/window_paramstatus.cpp
 	src/window_paramstatus.h
+	src/window_pinyin.cpp
+	src/window_pinyin.h
 	src/window_savefile.cpp
 	src/window_savefile.h
 	src/window_selectable.cpp

@@ -672,6 +672,7 @@ void Game_Config::LoadFromStream(Filesystem_Stream::InputStream& is) {
 	player.extra_movie_playback.FromIni(ini);
 	player.extra_recommended_soundfont.FromIni(ini);
 	player.extra_name_input_choices.FromIni(ini);
+	player.extra_pinyin_input.FromIni(ini);
 	player.extra_hide_maniac_logs.FromIni(ini);
 	player.extra_force_testplay.FromIni(ini);
 	player.lang_select_on_start.FromIni(ini);
@@ -771,6 +772,7 @@ void Game_Config::WriteToStream(Filesystem_Stream::OutputStream& os) const {
 	player.extra_movie_playback.ToIni(os);
 	player.extra_recommended_soundfont.ToIni(os);
 	player.extra_name_input_choices.ToIni(os);
+	player.extra_pinyin_input.ToIni(os);
 	player.extra_hide_maniac_logs.ToIni(os);
 	player.extra_force_testplay.ToIni(os);
 	player.lang_select_on_start.ToIni(os);

@@ -15,42 +15,38 @@
  * along with EasyRPG Player. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef EP_WINDOW_NAME_H
-#define EP_WINDOW_NAME_H
+#ifndef EP_WINDOW_PINYIN_H
+#define EP_WINDOW_PINYIN_H
 
-// Headers
 #include <string>
+#include <vector>
+
 #include "window_base.h"
-#include "string_view.h"
 
-/**
- * Window Name Class.
- */
-class Window_Name :	public Window_Base {
+class Window_Pinyin : public Window_Base {
 public:
-	/**
-	 * Constructor.
-	 */
-	Window_Name(int ix, int iy, int iwidth, int iheight);
+	Window_Pinyin(int ix, int iy, int iwidth = 256, int iheight = 32);
 
-	/**
-	 * Renders the current name on the window.
-	 */
+	void SetQuery(std::string query);
+	void SetCandidates(std::vector<std::string> candidates);
+	void Clear();
+	void MovePage(int delta);
+	void SetSelection(int index);
+	bool SetVisibleSelection(int slot);
+	int GetSelection() const;
+	bool HasSelection() const;
+	const std::string& GetSelectedCandidate() const;
 	void Refresh();
 
-	void Set(std::string text);
-	bool Append(std::string_view text);
-	void Erase();
-	const std::string& Get() const;
+private:
+	static constexpr int kVisibleCandidates = 4;
 
-	void Update() override;
+	int GetFirstVisibleIndex() const;
+	int GetPageCount() const;
 
-protected:
-	std::string name;
+	std::string query;
+	std::vector<std::string> candidates;
+	int index = 0;
 };
-
-inline const std::string& Window_Name::Get() const {
-	return name;
-}
 
 #endif
