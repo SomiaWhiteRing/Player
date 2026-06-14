@@ -119,6 +119,17 @@ inspect_android_packaging_inputs() {
 	cd builds/android
 	echo "APK outputs:"
 	find app/build/outputs/apk -maxdepth 4 -type f -print -exec ls -lh {} \; 2>/dev/null || true
+	echo "APK native libraries and built-in assets:"
+	find app/build/outputs/apk -type f -name '*.apk' -print -exec python3 -c '
+import sys
+import zipfile
+
+apk_path = sys.argv[1]
+with zipfile.ZipFile(apk_path) as archive:
+	for name in sorted(archive.namelist()):
+		if name.startswith("lib/") or name == "assets/builtin/recommended.sf2":
+			print(name)
+' {} \; 2>/dev/null || true
 	echo "Compressed assets:"
 	find app/build/intermediates/compressed_assets -type f -name '*recommended*' -print -exec unzip -lv {} \; 2>/dev/null || true
 	echo "Native libraries:"
@@ -133,6 +144,7 @@ package_android() {
 	export ANDROID_WORK_DIR="$android_work_dir"
 	export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-$android_work_dir/android-sdk}"
 	export ANDROID_HOME="${ANDROID_HOME:-$android_work_dir/android-sdk}"
+	mkdir -p "${HOME:-/tmp}/.android"
 
 	log "Cloning EasyRPG buildscripts for Android"
 	ensure_buildscripts_clone "$buildscripts_dir" full
@@ -215,17 +227,30 @@ package_android() {
 		echo "Missing build output: $apk_path"
 		exit 1
 	}
-	local abi
-	for abi in armeabi-v7a arm64-v8a x86 x86_64; do
-		unzip -l "$apk_path" "lib/$abi/libeasyrpg_android.so" | grep -q "lib/$abi/libeasyrpg_android.so" || {
-			echo "Missing Android native library for $abi in $apk_path"
-			exit 1
-		}
-	done
-	unzip -l "$apk_path" "assets/builtin/recommended.sf2" | grep -q "assets/builtin/recommended.sf2" || {
-		echo "Missing built-in SoundFont asset in $apk_path"
-		exit 1
-	}
+	APK_PATH="$apk_path" ANDROID_ABIS="$ANDROID_ABIS" python3 - <<'PY'
+import os
+import sys
+import zipfile
+
+apk_path = os.environ["APK_PATH"]
+abis = [abi for abi in os.environ["ANDROID_ABIS"].split(",") if abi]
+required = [f"lib/{abi}/libeasyrpg_android.so" for abi in abis]
+required.append("assets/builtin/recommended.sf2")
+
+with zipfile.ZipFile(apk_path) as archive:
+	names = set(archive.namelist())
+
+missing = [name for name in required if name not in names]
+if missing:
+	print(f"Missing Android APK entries in {apk_path}:")
+	for name in missing:
+		print(f"  {name}")
+	print("APK entries relevant to native libraries and built-in assets:")
+	for name in sorted(names):
+		if name.startswith("lib/") or name == "assets/builtin/recommended.sf2":
+			print(f"  {name}")
+	sys.exit(1)
+PY
 
 	mkdir -p "$artifact_dir"
 	cp "$apk_path" "$asset_path"
