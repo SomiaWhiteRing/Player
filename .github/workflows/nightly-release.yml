@@ -61,10 +61,26 @@ jobs:
           path: ${{ env.BUILDSCRIPTS_DIR }}\windows\vcpkg
           key: easyrpg-windows-toolchain-${{ runner.os }}-${{ env.VCPKG_TRIPLET }}-2026-04-28
 
+      - name: Restore Windows build cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.BUILD_DIR }}
+          key: easyrpg-windows-build-${{ runner.os }}-${{ env.VCPKG_TRIPLET }}-${{ github.sha }}
+          restore-keys: |
+            easyrpg-windows-build-${{ runner.os }}-${{ env.VCPKG_TRIPLET }}-
+
+      - name: Restore source timestamps for Windows incremental build
+        run: |
+          $marker = Join-Path $env:BUILD_DIR ".player-cache-commit"
+          $changedSince = if (Test-Path $marker) { Get-Content $marker -Raw } else { "" }
+          .\builds\ci\restore-git-mtime.ps1 -ChangedSince $changedSince.Trim()
+
       - name: Package Windows nightly artifact
         id: package
         run: |
           .\builds\ci\package-windows-nightly.ps1
+          New-Item -ItemType Directory -Force -Path $env:BUILD_DIR | Out-Null
+          git rev-parse HEAD | Set-Content -NoNewline (Join-Path $env:BUILD_DIR ".player-cache-commit")
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
