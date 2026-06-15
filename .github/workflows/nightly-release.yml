@@ -97,7 +97,9 @@ jobs:
           path: |
             external/local-docker/web
             external/local-docker/home
-          key: easyrpg-local-docker-web-${{ runner.os }}-${{ hashFiles('builds/package-docker.ps1', 'builds/docker/package.Dockerfile', 'builds/ci/package-ubuntu-nightly.sh') }}
+          key: easyrpg-local-docker-web-${{ runner.os }}-${{ hashFiles('builds/docker/package.Dockerfile', 'builds/ci/package-ubuntu-nightly.cache.env') }}
+          restore-keys: |
+            easyrpg-local-docker-web-${{ runner.os }}-
 
       - name: Package Web nightly artifact
         run: |
@@ -135,7 +137,9 @@ jobs:
             external/local-docker/android
             external/local-docker/gradle
             external/local-docker/home
-          key: easyrpg-local-docker-android-${{ runner.os }}-${{ hashFiles('builds/package-docker.ps1', 'builds/docker/package.Dockerfile', 'builds/ci/package-ubuntu-nightly.sh') }}
+          key: easyrpg-local-docker-android-${{ runner.os }}-${{ hashFiles('builds/docker/package.Dockerfile', 'builds/ci/package-ubuntu-nightly.cache.env') }}
+          restore-keys: |
+            easyrpg-local-docker-android-${{ runner.os }}-
 
       - name: Package Android nightly artifact
         run: |

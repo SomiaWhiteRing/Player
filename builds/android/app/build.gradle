@@ -1,3 +1,11 @@
+def androidBuildDir = project.findProperty("androidBuildDir") ?: System.getenv("ANDROID_BUILD_DIR")
+def androidCxxBuildDir = project.findProperty("androidCxxBuildDir") ?: System.getenv("ANDROID_CXX_BUILD_DIR")
+def androidUseCcache = (project.findProperty("androidUseCcache") ?: System.getenv("ANDROID_USE_CCACHE") ?: "false").toBoolean()
+
+if (androidBuildDir) {
+    buildDir = file(androidBuildDir)
+}
+
 apply plugin: 'com.android.application'
 
 android {
@@ -54,6 +62,9 @@ android {
         cmake {
             path "../../../CMakeLists.txt"
             version "3.22.1"
+            if (androidCxxBuildDir) {
+                buildStagingDirectory file(androidCxxBuildDir)
+            }
         }
     }
     lint {
@@ -67,6 +78,12 @@ android {
                         "-DBUILD_SHARED_LIBS=ON",
                         "-DPLAYER_ENABLE_TESTS=OFF",
                         "-DPLAYER_TARGET_PLATFORM=SDL3"
+
+                if (androidUseCcache) {
+                    arguments.addAll([
+                            "-DCMAKE_C_COMPILER_LAUNCHER=ccache",
+                            "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"])
+                }
 
                 if (project.hasProperty("toolchainDirs") && project.toolchainDirs) {
                     arguments.add('-DPLAYER_ANDROID_TOOLCHAIN_PATH=' + project.toolchainDirs)
@@ -114,8 +131,11 @@ tasks.register('copyRecommendedSoundfont', Copy) {
 }
 
 tasks.register('downloadSdlAar') {
+    def sdlAarDest = file("SDL3-${sdlVersion}.aar")
+    inputs.property("sdlVersion", sdlVersion)
+    outputs.file(sdlAarDest)
+
     doLast {
-        def sdlAarDest = file("SDL3-${sdlVersion}.aar")
         if (!sdlAarDest.exists()) {
             println "Downloading SDL ${sdlVersion} AAR..."
             def sdlZipDest = layout.buildDirectory.file("sdl3.zip").get().asFile
