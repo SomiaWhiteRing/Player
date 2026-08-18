@@ -196,7 +196,7 @@ namespace Player {
 	 *
 	 * @return current codepage
 	 */
-	std::string GetEncoding();
+	std::string GetEncoding(bool skip_ini = false);
 
 	/** @return If engine is any version of RPG2k */
 	bool IsRPG2k();
