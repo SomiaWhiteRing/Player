@@ -48,7 +48,13 @@ runtime has not been measured.
 
 Requires liblcf commit `4056dbf533182dd46c0a9b1831da23bc16cc0ae8`
 (`Persist Maniac animation buffer state in SaveScreen`) in the independent
-`lib/liblcf` repository. It is not tracked as a Player submodule. `SaveScreen` adds an
+`lib/liblcf` repository, published at
+[SomiaWhiteRing/liblcf](https://github.com/SomiaWhiteRing/liblcf/tree/my-feature-stable)
+on branch `my-feature-stable`. It is not tracked as a Player submodule.
+Configure with `-DPLAYER_BUILD_LIBLCF=ON` to clone and build the matching fork;
+the nightly packaging scripts enable this for Windows, Web, and Android.
+An existing `lib/liblcf` checkout must contain the required commit.
+`SaveScreen` adds an
 EasyRPG-only vector field at chunk `0xC8`, declared in
 `generator/csv/fields_easyrpg.csv`. Regenerate with `generator/generate.py` and
 rebuild liblcf before Player. This extension does not change any original

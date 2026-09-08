@@ -185,6 +185,9 @@ package_web() {
 			-DPLAYER_FIND_ROOT_PATH_APPEND=ON \
 			-DPLAYER_JS_BUILD_SHELL=ON \
 			-DPLAYER_ENABLE_TESTS=OFF \
+			-DPLAYER_BUILD_LIBLCF=ON \
+			-DPLAYER_BUILD_LIBLCF_GIT=https://github.com/SomiaWhiteRing/liblcf.git \
+			-DPLAYER_BUILD_LIBLCF_BRANCH=my-feature-stable \
 			-DPLAYER_TARGET_PLATFORM=SDL3 \
 			-DPLAYER_VERSION_APPEND="$version_suffix"
 
@@ -381,6 +384,11 @@ package_android() {
 	)
 
 	log "Building Android APK"
+	# Clone once before Gradle configures the different ABIs.
+	if [ ! -d lib/liblcf ]; then
+		mkdir -p lib
+		git clone --depth 1 --branch my-feature-stable https://github.com/SomiaWhiteRing/liblcf.git lib/liblcf
+	fi
 	(
 		cd builds/android
 		local gradle_args=(
@@ -388,7 +396,7 @@ package_android() {
 			-PandroidUseCcache=true \
 			-PABI_FILTERS_DEBUG="$ANDROID_ABIS" \
 			-PVERSION_CODE_OVERRIDE="$version_code" \
-			-PcmakeOptions="-DPLAYER_TARGET_PLATFORM=SDL3" \
+			-PcmakeOptions="-DPLAYER_TARGET_PLATFORM=SDL3 -DPLAYER_BUILD_LIBLCF=ON -DPLAYER_BUILD_LIBLCF_GIT=https://github.com/SomiaWhiteRing/liblcf.git -DPLAYER_BUILD_LIBLCF_BRANCH=my-feature-stable" \
 			assembleDebug \
 			--stacktrace
 		)

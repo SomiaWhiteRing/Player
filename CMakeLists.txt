@@ -949,8 +949,8 @@ set(CMAKE_XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "org.easyrpg.player")
 
 # liblcf
 option(PLAYER_BUILD_LIBLCF "Instead of detecting liblcf, clone liblcf into lib/liblcf and build it along with the Player. This is convenient for development." OFF)
-set(PLAYER_BUILD_LIBLCF_GIT "https://github.com/EasyRPG/liblcf.git" CACHE STRING "Git repository of liblcf to clone. Requires PLAYER_BUILD_LIBLCF=ON.")
-set(PLAYER_BUILD_LIBLCF_BRANCH "master" CACHE STRING "Branch of the liblcf repository to clone. Requires PLAYER_BUILD_LIBLCF=ON.")
+set(PLAYER_BUILD_LIBLCF_GIT "https://github.com/SomiaWhiteRing/liblcf.git" CACHE STRING "Git repository of liblcf to clone. Requires PLAYER_BUILD_LIBLCF=ON.")
+set(PLAYER_BUILD_LIBLCF_BRANCH "my-feature-stable" CACHE STRING "Branch of the liblcf repository to clone. Requires PLAYER_BUILD_LIBLCF=ON.")
 
 if(PLAYER_BUILD_LIBLCF)
 	# liblcf is built as part of this cmake file
