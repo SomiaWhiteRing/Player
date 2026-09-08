@@ -105,19 +105,44 @@ protected:
 };
 
 // For playing animations on the map.
+struct ManiacAnimationParams {
+	int animation_id = 0;
+	int mode = 0;
+	int target_id = 0;
+	int x = 0;
+	int y = 0;
+	// Binding uses 0 = variable, 1 = indirect variable, unlike fixed positions.
+	int x_mode = 0;
+	int y_mode = 0;
+	bool invert = false;
+	bool keep = false;
+};
+
 class BattleAnimationMap : public BattleAnimation {
 public:
 	BattleAnimationMap(const lcf::rpg::Animation& anim, Game_Character& target, bool global);
+	BattleAnimationMap(const lcf::rpg::Animation& anim, ManiacAnimationParams params);
 	void SetTarget(Game_Character& target);
+	bool HasTarget() const;
+	bool RefreshTarget();
+	const ManiacAnimationParams& GetManiacParams() const;
+	int GetPositionX() const;
+	int GetPositionY() const;
+	void SetPosition(int x, int y);
 	void Draw(Bitmap& dst) override;
 protected:
 	void FlashTargets(int r, int g, int b, int p) override;
 	void ShakeTargets(int str, int spd, int time) override;
+	void UpdateScreenFlash() override;
 	void DrawSingle(Bitmap& dst);
 	void DrawGlobal(Bitmap& dst);
 
-	Game_Character* target;
+	Game_Character* target = nullptr;
 	bool global = false;
+	int screen_x = 0;
+	int screen_y = 0;
+	bool maniac = false;
+	ManiacAnimationParams params;
 };
 
 // For playing animations against a (group of) battlers in battle.

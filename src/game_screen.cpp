@@ -67,6 +67,7 @@ void Game_Screen::InitGraphics() {
 				data.battleanim_global,
 				data.battleanim_frame);
 	}
+	RestoreManiacAnimations();
 }
 
 void Game_Screen::OnMapChange() {
@@ -101,6 +102,8 @@ void Game_Screen::OnMapChange() {
 
 	data.battleanim_active = false;
 	animation.reset();
+	maniac_animations.clear();
+	data.easyrpg_maniac_animations.clear();
 }
 
 void Game_Screen::TintScreen(int r, int g, int b, int s, int tenths) {
@@ -507,7 +510,7 @@ void Game_Screen::Update() {
 	UpdateBattleAnimation();
 }
 
-int Game_Screen::ShowBattleAnimation(int animation_id, int target_id, bool global, int start_frame) {
+int Game_Screen::ShowBattleAnimation(int animation_id, int target_id, bool global, int start_frame, bool invert) {
 	const lcf::rpg::Animation* anim = lcf::ReaderUtil::GetElement(lcf::Data::animations, animation_id);
 	if (!anim) {
 		Output::Warning("ShowBattleAnimation: Invalid battle animation ID {}", animation_id);
@@ -528,6 +531,7 @@ int Game_Screen::ShowBattleAnimation(int animation_id, int target_id, bool globa
 	data.battleanim_frame = start_frame;
 
 	animation.reset(new BattleAnimationMap(*anim, *chara, global));
+	animation->SetInvert(invert);
 
 	if (start_frame) {
 		animation->SetFrame(start_frame);
@@ -536,7 +540,106 @@ int Game_Screen::ShowBattleAnimation(int animation_id, int target_id, bool globa
 	return animation->GetFrames();
 }
 
+int Game_Screen::ShowManiacBattleAnimation(int buffer, const ManiacAnimationParams& params, int start_frame) {
+	if (buffer < 0 || params.mode < 0 || params.mode > 4 || start_frame < 0) {
+		Output::Warning("ShowBattleAnimation: Invalid Maniac buffer, mode or frame");
+		return 0;
+	}
+	if (params.animation_id == 0) {
+		maniac_animations.erase(buffer);
+		SaveManiacAnimations();
+		return 0;
+	}
+	const auto* anim = lcf::ReaderUtil::GetElement(lcf::Data::animations, params.animation_id);
+	if (!anim) {
+		Output::Warning("ShowBattleAnimation: Invalid battle animation ID {}", params.animation_id);
+		return 0;
+	}
+	auto effect = std::make_unique<BattleAnimationMap>(*anim, params);
+	if (!effect->RefreshTarget()) {
+		Output::Warning("ShowBattleAnimation: Invalid target event ID {}", params.target_id);
+		return 0;
+	}
+	if (start_frame > 0) {
+		effect->SetFrame(std::min(start_frame, effect->GetFrames()));
+	}
+	auto previous = maniac_animations.find(buffer);
+	if (previous != maniac_animations.end()
+			&& previous->second->GetManiacParams().keep
+			&& previous->second->GetManiacParams().animation_id == params.animation_id) {
+		effect->SetBitmap(previous->second->GetBitmap());
+	}
+	const int frames = effect->GetFrames() - effect->GetFrame();
+	maniac_animations[buffer] = std::move(effect);
+	SaveManiacAnimations();
+	return frames;
+}
+
+void Game_Screen::SaveManiacAnimations() {
+	// Version 1 followed by records of 14 int32 values in an EasyRPG chunk.
+	auto& out = data.easyrpg_maniac_animations;
+	out.clear();
+	if (maniac_animations.empty()) {
+		return;
+	}
+	out.push_back(1);
+	for (const auto& entry : maniac_animations) {
+		const auto& effect = *entry.second;
+		const auto& p = effect.GetManiacParams();
+		out.insert(out.end(), {entry.first, p.animation_id, p.mode, p.target_id,
+			p.x, p.y, p.x_mode, p.y_mode, p.invert ? 1 : 0, p.keep ? 1 : 0,
+			effect.GetFrame(), effect.GetPositionX(), effect.GetPositionY(), 0});
+	}
+}
+
+void Game_Screen::RestoreManiacAnimations() {
+	const auto saved = data.easyrpg_maniac_animations;
+	maniac_animations.clear();
+	if (saved.empty()) {
+		return;
+	}
+	if (saved[0] != 1 || (saved.size() - 1) % 14 != 0) {
+		Output::Warning("Invalid saved Maniac animation data");
+		data.easyrpg_maniac_animations.clear();
+		return;
+	}
+	for (size_t i = 1; i < saved.size(); i += 14) {
+		ManiacAnimationParams p;
+		p.animation_id = saved[i + 1]; p.mode = saved[i + 2]; p.target_id = saved[i + 3];
+		p.x = saved[i + 4]; p.y = saved[i + 5];
+		p.x_mode = saved[i + 6]; p.y_mode = saved[i + 7];
+		p.invert = saved[i + 8] != 0; p.keep = saved[i + 9] != 0;
+		if (p.mode == 4 && (p.x_mode < 0 || p.x_mode > 1 || p.y_mode < 0 || p.y_mode > 1)) {
+			Output::Warning("Invalid saved Maniac animation binding mode");
+			continue;
+		}
+		ShowManiacBattleAnimation(saved[i], p, saved[i + 10]);
+		auto it = maniac_animations.find(saved[i]);
+		if (it != maniac_animations.end()) {
+			it->second->SetPosition(saved[i + 11], saved[i + 12]);
+		}
+	}
+	SaveManiacAnimations();
+}
+
 void Game_Screen::UpdateBattleAnimation() {
+	for (auto it = maniac_animations.begin(); it != maniac_animations.end();) {
+		auto& effect = *it->second;
+		if (!effect.RefreshTarget()) {
+			it = maniac_animations.erase(it);
+			continue;
+		}
+		if (!effect.IsDone()) {
+			effect.Update();
+		}
+		// Cached completed instances retain the bitmap, but do not play or wait.
+		if (effect.IsDone() && !effect.GetManiacParams().keep && !Game_Battle::IsBattleRunning()) {
+			it = maniac_animations.erase(it);
+		} else {
+			++it;
+		}
+	}
+	SaveManiacAnimations();
 	if (animation) {
 		if (!animation->IsDone()) {
 			animation->Update();
@@ -546,12 +649,15 @@ void Game_Screen::UpdateBattleAnimation() {
 		if (animation->IsDone() && !Game_Battle::IsBattleRunning()) {
 			// FIXME: Lifetime is flawed but we need the animation in battle for
 			// SE and flash. Delay destruction until back on the map.
-			CancelBattleAnimation();
+			data.battleanim_active = false;
+			animation.reset();
 		}
 	}
 }
 
 void Game_Screen::CancelBattleAnimation() {
+	maniac_animations.clear();
+	data.easyrpg_maniac_animations.clear();
 	data.battleanim_frame = animation ?
 		animation->GetFrames() : 0;
 	data.battleanim_active = false;
@@ -559,14 +665,23 @@ void Game_Screen::CancelBattleAnimation() {
 }
 
 void Game_Screen::UpdateUnderlyingEventReferences() {
-	if (!IsBattleAnimationWaiting()) {
+	for (auto it = maniac_animations.begin(); it != maniac_animations.end();) {
+		if (!it->second->RefreshTarget()) {
+			it = maniac_animations.erase(it);
+		} else {
+			++it;
+		}
+	}
+	SaveManiacAnimations();
+	if (!animation || !animation->HasTarget()) {
 		return;
 	}
 
 	auto* chara = Game_Character::GetCharacter(data.battleanim_target, data.battleanim_target);
 	if (!chara) {
 		// Event was deleted
-		CancelBattleAnimation();
+		data.battleanim_active = false;
+		animation.reset();
 	} else {
 		animation->SetTarget(*chara);
 	}

@@ -33,6 +33,8 @@
 #include "drawable_mgr.h"
 #include "scene_map.h"
 #include "spriteset_map.h"
+#include "game_pictures.h"
+#include "game_variables.h"
 
 BattleAnimation::BattleAnimation(const lcf::rpg::Animation& anim, bool only_sound, int cutoff) :
 	animation(anim), only_sound(only_sound)
@@ -234,12 +236,57 @@ BattleAnimationMap::BattleAnimationMap(const lcf::rpg::Animation& anim, Game_Cha
 {
 }
 
+BattleAnimationMap::BattleAnimationMap(const lcf::rpg::Animation& anim, ManiacAnimationParams params) :
+	BattleAnimation(anim), global(params.mode == 1), screen_x(params.x), screen_y(params.y),
+	maniac(true), params(params)
+{
+	SetInvert(params.invert);
+	RefreshTarget();
+}
+
+const ManiacAnimationParams& BattleAnimationMap::GetManiacParams() const {
+	return params;
+}
+
+int BattleAnimationMap::GetPositionX() const { return screen_x; }
+int BattleAnimationMap::GetPositionY() const { return screen_y; }
+void BattleAnimationMap::SetPosition(int x, int y) { screen_x = x; screen_y = y; }
+
+bool BattleAnimationMap::RefreshTarget() {
+	if (!maniac) {
+		return true;
+	}
+	if (params.mode <= 1) {
+		target = Game_Character::GetCharacter(params.target_id, params.target_id);
+		return target != nullptr;
+	}
+	if (params.mode == 2) {
+		// Resolve the ID each time: picture storage may grow or replace a sprite.
+		// Erase keeps the picture's last coordinates, so the effect can finish there.
+		if (params.target_id > 0) {
+			if (auto* pic = Main_Data::game_pictures->GetPicturePtr(params.target_id)) {
+				screen_x = static_cast<int>(pic->data.current_x);
+				screen_y = static_cast<int>(pic->data.current_y);
+			}
+		}
+	} else if (params.mode == 4) {
+		auto& variables = *Main_Data::game_variables;
+		screen_x = params.x_mode == 0 ? variables.Get(params.x) : variables.GetIndirect(params.x);
+		screen_y = params.y_mode == 0 ? variables.Get(params.y) : variables.GetIndirect(params.y);
+	}
+	return true;
+}
+
+bool BattleAnimationMap::HasTarget() const {
+	return target != nullptr;
+}
+
 void BattleAnimationMap::SetTarget(Game_Character& target) {
 	this->target = &target;
 }
 
 void BattleAnimationMap::Draw(Bitmap& dst) {
-	if (IsOnlySound()) {
+	if (IsOnlySound() || !RefreshTarget()) {
 		return;
 	}
 
@@ -261,6 +308,12 @@ void BattleAnimationMap::DrawGlobal(Bitmap& dst) {
 }
 
 void BattleAnimationMap::DrawSingle(Bitmap& dst) {
+	if (!target) {
+		// Maniac fixed positions are screen pixels, independent of map scrolling
+		// and the animation's character-relative positioning settings.
+		DrawAt(dst, screen_x, screen_y);
+		return;
+	}
 	//If animation is targeted on the screen
 	if (animation.scope == lcf::rpg::Animation::Scope_screen) {
 		DrawAt(dst, Player::screen_width / 2, Player::screen_height / 2);
@@ -280,7 +333,23 @@ void BattleAnimationMap::DrawSingle(Bitmap& dst) {
 }
 
 void BattleAnimationMap::FlashTargets(int r, int g, int b, int p) {
-	target->Flash(r, g, b, p, 0);
+	if (target && (!maniac || p > 0)) {
+		target->Flash(r, g, b, p, maniac ? 1 : 0);
+	}
+}
+
+void BattleAnimationMap::UpdateScreenFlash() {
+	if (!maniac) {
+		BattleAnimation::UpdateScreenFlash();
+		return;
+	}
+	int r, g, b, p;
+	UpdateFlashGeneric(screen_flash_timing, r, g, b, p);
+	// An idle buffer must not clear another buffer's flash. One-frame flashes
+	// expire normally when there is no remaining animation contribution.
+	if (p > 0) {
+		Main_Data::game_screen->FlashOnce(r, g, b, p, 1);
+	}
 }
 
 void BattleAnimationMap::ShakeTargets(int /* str */, int /* spd */, int /* time */) {

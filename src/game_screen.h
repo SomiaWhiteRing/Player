@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <map>
 #include <cassert>
 #include "system.h"
 #include "options.h"
@@ -123,7 +124,10 @@ public:
 	 *
 	 * @return the number of frames the animation will run.
 	 */
-	int ShowBattleAnimation(int animation_id, int target_id, bool global, int start_frame = 0);
+	int ShowBattleAnimation(int animation_id, int target_id, bool global, int start_frame = 0, bool invert = false);
+
+	/** Start or replace one Maniac buffer; other buffers remain active. */
+	int ShowManiacBattleAnimation(int buffer, const ManiacAnimationParams& params, int start_frame = 0);
 
 	/**
 	 * Update the currently running battle animation by 1 frame.
@@ -182,6 +186,9 @@ public:
 
 private:
 	std::unique_ptr<BattleAnimationMap> animation;
+	std::map<int, std::unique_ptr<BattleAnimationMap>> maniac_animations;
+	void SaveManiacAnimations();
+	void RestoreManiacAnimations();
 	std::unique_ptr<Weather> weather;
 	std::unique_ptr<MoviePlayer> movie_player;
 
@@ -271,7 +278,15 @@ inline const std::vector<Game_Screen::Particle>& Game_Screen::GetParticles() {
 }
 
 inline bool Game_Screen::IsBattleAnimationWaiting() {
-	return (bool)animation;
+	if (animation) {
+		return true;
+	}
+	for (const auto& entry : maniac_animations) {
+		if (!entry.second->IsDone()) {
+			return true;
+		}
+	}
+	return false;
 }
 
 inline const lcf::rpg::SaveScreen& Game_Screen::GetSaveData() const {

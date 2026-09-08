@@ -707,6 +707,61 @@ bool Game_Interpreter_Map::CommandShowBattleAnimation(lcf::rpg::EventCommand con
 	int evt_id = com.parameters[1];
 	bool waiting_battle_anim = com.parameters[2] > 0;
 	bool global = com.parameters[3] > 0;
+	bool invert = false;
+
+	if (Player::IsPatchManiac()) {
+		const unsigned flags = com.parameters.size() > 4 ? com.parameters[4] : 0;
+		auto operand = [&](size_t index) {
+			return com.parameters.size() > index ? com.parameters[index] : 0;
+		};
+		auto value_mode = [&](int slot) { return (flags >> (slot * 4)) & 0xF; };
+		auto value = [&](size_t index, int slot) {
+			return ValueOrVariable(value_mode(slot), operand(index));
+		};
+		ManiacAnimationParams p;
+		p.animation_id = value(0, 0);
+		p.mode = operand(3);
+		p.keep = (operand(2) & 2) != 0;
+		p.invert = value(8, 5) != 0;
+		const int buffer = value(5, 2);
+		if (p.mode < 0 || p.mode > 4 || buffer < 0) {
+			Output::Warning("ShowBattleAnimation: Invalid Maniac position mode {} or buffer {}", p.mode, buffer);
+			return true;
+		}
+		if (p.mode <= 2) {
+			p.target_id = value(1, 1);
+			if (p.animation_id != 0 && p.mode <= 1) {
+				if (!GetCharacter(p.target_id, "ShowBattleAnimation")) {
+					return true;
+				}
+				if (p.target_id == Game_Character::CharThisEvent) {
+					p.target_id = GetThisEventId();
+				}
+			} else if (p.animation_id != 0 && p.mode == 2 && p.target_id <= 0) {
+				Output::Warning("ShowBattleAnimation: Invalid picture ID {}", p.target_id);
+				return true;
+			}
+		} else if (p.mode == 3) {
+			p.x = value(6, 3);
+			p.y = value(7, 4);
+		} else {
+			// Binding's selector only offers variable and indirect variable.
+			// Its indices 0/1 must not be decoded as constant/variable.
+			p.x = operand(6);
+			p.y = operand(7);
+			p.x_mode = value_mode(3);
+			p.y_mode = value_mode(4);
+			if (p.x_mode > 1 || p.y_mode > 1) {
+				Output::Warning("ShowBattleAnimation: Invalid Maniac binding mode");
+				return true;
+			}
+		}
+		const int frames = Main_Data::game_screen->ShowManiacBattleAnimation(buffer, p);
+		if ((operand(2) & 1) != 0) {
+			_state.wait_time = frames;
+		}
+		return true;
+	}
 
 	Game_Character* chara = GetCharacter(evt_id, "ShowBattleAnimation");
 	if (chara == NULL)
@@ -715,7 +770,7 @@ bool Game_Interpreter_Map::CommandShowBattleAnimation(lcf::rpg::EventCommand con
 	if (evt_id == Game_Character::CharThisEvent)
 		evt_id = GetThisEventId();
 
-	int frames = Main_Data::game_screen->ShowBattleAnimation(animation_id, evt_id, global);
+	int frames = Main_Data::game_screen->ShowBattleAnimation(animation_id, evt_id, global, 0, invert);
 
 	if (waiting_battle_anim) {
 		_state.wait_time = frames;
