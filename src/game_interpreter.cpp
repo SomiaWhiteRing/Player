@@ -2299,8 +2299,11 @@ bool Game_Interpreter::CommandChangeEventLocation(lcf::rpg::EventCommand const& 
 	int event_id = com.parameters[0];
 	Game_Character *event = GetCharacter(event_id, "ChangeEventLocation");
 	if (event != nullptr) {
-		const auto x = ValueOrVariable(com.parameters[1], com.parameters[2]);
-		const auto y = ValueOrVariable(com.parameters[1], com.parameters[3]);
+		// Some maps use 0x1000 for constant coordinates. Accept this exact
+		// mode here without changing how other commands evaluate values.
+		const auto mode = com.parameters[1] == 0x1000 ? 0 : com.parameters[1];
+		const auto x = ValueOrVariable(mode, com.parameters[2]);
+		const auto y = ValueOrVariable(mode, com.parameters[3]);
 		event->MoveTo(event->GetMapId(), x, y);
 
 		// RPG2k3 feature
@@ -2310,7 +2313,7 @@ bool Game_Interpreter::CommandChangeEventLocation(lcf::rpg::EventCommand const& 
 		}
 
 		// Only for the constant case, not for variables
-		if (com.parameters[1] == 0 && direction != -1) {
+		if (mode == 0 && direction != -1) {
 			event->SetDirection(direction);
 			event->UpdateFacing();
 		}
