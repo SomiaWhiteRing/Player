@@ -343,7 +343,7 @@ bool Sdl3Ui::RefreshDisplayMode() {
 			return false;
 		}
 
-		SDL_GetWindowSize(sdl_window, &window.width, &window.height);
+		SDL_GetWindowSizeInPixels(sdl_window, &window.width, &window.height);
 		window.size_changed = true;
 
 		auto window_sg = lcf::makeScopeGuard([&]() {
@@ -800,15 +800,9 @@ void Sdl3Ui::ProcessWindowEvent(SDL_Event &evnt) {
 	}
 #endif
 	if (state == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED || state == SDL_EVENT_WINDOW_RESIZED) {
-		window.width = evnt.window.data1;
-		window.height = evnt.window.data2;
-
-#ifdef EMSCRIPTEN
-		double display_ratio = emscripten_get_device_pixel_ratio();
-		window.width = static_cast<int>(window.width * display_ratio);
-		window.height = static_cast<int>(window.height * display_ratio);
-#endif
-
+		// RESIZED reports window coordinates, PIXEL_SIZE_CHANGED reports pixels.
+		// Always query drawable dimensions to avoid applying the DPI scale twice.
+		SDL_GetWindowSizeInPixels(sdl_window, &window.width, &window.height);
 		window.size_changed = true;
 	}
 }
