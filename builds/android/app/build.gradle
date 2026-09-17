@@ -19,6 +19,13 @@ android {
     androidResources {
         noCompress += ['sf2']
     }
+    packaging {
+        jniLibs {
+            // Keep all four ABIs while reducing the downloadable APK size.
+            // Android extracts the compressed libraries during installation.
+            useLegacyPackaging = true
+        }
+    }
     defaultConfig {
         applicationId "org.easyrpg.player.kai"
         minSdkVersion 23

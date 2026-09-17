@@ -441,6 +441,19 @@ required.append("assets/builtin/recommended.sf2")
 
 with zipfile.ZipFile(apk_path) as archive:
 	names = set(archive.namelist())
+	uncompressed_libraries = [
+		info.filename for info in archive.infolist()
+		if info.filename.startswith("lib/") and info.filename.endswith(".so")
+		and info.compress_type != zipfile.ZIP_DEFLATED
+	]
+
+if uncompressed_libraries:
+	raise SystemExit(f"Native libraries must be compressed: {uncompressed_libraries}")
+
+apk_size = os.path.getsize(apk_path)
+if apk_size >= 100_000_000:
+	raise SystemExit(f"Android APK exceeds the 100 MB download limit: {apk_size} bytes")
+print(f"Android APK size: {apk_size:,} bytes; native libraries compressed")
 
 missing = [name for name in required if name not in names]
 if missing:

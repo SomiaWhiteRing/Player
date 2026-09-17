@@ -114,3 +114,5 @@ Web zip 需要通过 HTTP 服务访问。游戏数据放在 `games/default/`，�
 Windows x64 的 `Player.exe` 由 GitHub Workflow 的 `windows-2022` job 调用 `builds/ci/package-windows-nightly.ps1` 生成；它依赖 Visual Studio 2022 runner 和 `x64-windows-static` vcpkg 工具链，不在本地 Linux Docker 容器里另建一套交叉编译流程。标准分发产物以 Nightly Action 上传的 `Player.exe` 为准。
 
 Nightly Action 上传的是 debug-signed APK，方便直接安装测试；正式 release 签名需要另行配置 keystore。
+
+Android APK 保留 armeabi-v7a、arm64-v8a、x86 和 x86_64 四种架构，使用压缩的原生库将下载体积控制在 100 MB 以下；构建步骤会检查压缩方式与包大小。Android 安装时会解压原生库，因此下载体积减小不代表安装后占用按同比例减小。
