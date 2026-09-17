@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="web_import_title">Import from VIPRPG Archive</string>
+    <string name="web_import_intro">Load a published game snapshot from VIPRPG Archive.</string>
+    <string name="web_import_loading">Loading game information…</string>
+    <string name="web_import_confirm">Import this game into your EasyRPG games folder? Existing games and saves are kept. New snapshots use separate save folders. Keep this screen open until the import finishes.</string>
+    <string name="web_import_details">%1$s\nSnapshot: %2$s · Download: %3$s\nSource: %4$s\nDestination: games/%5$s</string>
+    <string name="web_import_start">Confirm import / select folder</string>
+    <string name="web_import_open_games">Open game library</string>
+    <string name="web_import_close">Close</string>
+    <string name="web_import_retry">Retry</string>
+    <string name="web_import_downloading">Downloading…</string>
+    <string name="web_import_verifying">Checking game files…</string>
+    <string name="web_import_saving">Saving to games…</string>
+    <string name="web_import_verifying_storage">Checking the saved ZIP…</string>
+    <string name="web_import_complete">Import complete. The game is ready in your library.</string>
+    <string name="web_import_exists">This snapshot already exists in games. Nothing was overwritten.</string>
+    <string name="web_import_cancelled">Import cancelled. No game was installed.</string>
+    <string name="web_import_cancelling">Cancelling and cleaning up…</string>
+    <string name="web_import_busy">An import is running. Finish or cancel it, then open the other website link again.</string>
+    <string name="web_import_folder_ready">Folder selected. Confirm import to download the game into its games folder.</string>
+    <string name="web_import_invalid_source">Invalid import link. Only the official VIPRPG Archive and its staging site are supported.</string>
+    <string name="web_import_invalid_metadata">The website returned invalid or unsupported import information.</string>
+    <string name="web_import_network_error">Could not reach the website. Check your connection and retry.</string>
+    <string name="web_import_unavailable">This snapshot is no longer published or current. Reopen the game page and try again.</string>
+    <string name="web_import_unsupported">This game cannot be imported. Import supports RPG Maker 2000/2003 snapshots up to 1 GiB and 50,000 files.</string>
+    <string name="web_import_changed">The snapshot changed while importing. Reload the game page and try again.</string>
+    <string name="web_import_integrity_error">The downloaded game is incomplete or failed verification. Please retry.</string>
+    <string name="web_import_storage_error">Cannot save to the selected games folder. Check folder access and free space. Any unfinished .kai-import-*.part file may be removed.</string>
+    <string name="web_import_space_error">Not enough temporary storage. Free space on this device and try again.</string>
+    <string name="web_import_failed">Import failed. Check the connection, folder access and available space, then retry.</string>
+</resources>

@@ -1,6 +1,10 @@
 def androidBuildDir = project.findProperty("androidBuildDir") ?: System.getenv("ANDROID_BUILD_DIR")
 def androidCxxBuildDir = project.findProperty("androidCxxBuildDir") ?: System.getenv("ANDROID_CXX_BUILD_DIR")
 def androidUseCcache = (project.findProperty("androidUseCcache") ?: System.getenv("ANDROID_USE_CCACHE") ?: "false").toBoolean()
+def releaseHeading = rootProject.file("../../RELEASE.md").readLines("UTF-8").first().trim()
+if (!(releaseHeading ==~ /# [0-9]{4}\.(?:[1-9]|1[0-2])\.[1-9][0-9]*/)) {
+    throw new GradleException("RELEASE.md must start with a calendar version heading")
+}
 
 if (androidBuildDir) {
     buildDir = file(androidBuildDir)
@@ -30,7 +34,7 @@ android {
         applicationId "org.easyrpg.player.kai"
         minSdkVersion 23
         targetSdkVersion 36
-        versionName VERSION_NAME
+        versionName releaseHeading.substring(2)
         versionCode Integer.parseInt(project.findProperty("VERSION_CODE_OVERRIDE") ?: VERSION_CODE)
     }
     signingConfigs {
