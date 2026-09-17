@@ -98,7 +98,7 @@ Web 版默认启用 `ExtraRecommendedSoundFont`，使用 `resources/soundfonts/r
 
 三个平台固定使用同一个提交，全部成功后才发布；过时构建会跳过发布，等待新提交的构建。正式版和 Nightly 使用同一批二进制。Web ZIP 与 Android APK 的正式版文件名包含版本号，Windows 保持 `Player.exe`。
 
-每个 Release 附带 `release-manifest.json`，记录提交 SHA、工作流运行、版本、文件大小和 SHA-256，发布日志也包含这些校验值。同版本覆盖不会保留旧包，复现问题时请同时记录版本号与提交 SHA；历史构建另受 GitHub Actions 产物保留期限制。上传失败时工作流会失败，可在分支仍指向该提交时重跑失败任务；GitHub 对已有 Release 的多个附件替换不提供原子操作。
+每个 Release 附带 `release-manifest.json`，记录提交 SHA、工作流运行、版本、文件大小和 SHA-256，发布日志也包含这些校验值。同版本覆盖不会保留旧包，复现问题时请同时记录版本号与提交 SHA；历史构建另受 GitHub Actions 产物保留期限制。单个附件上传限时 5 分钟、最多尝试 3 次，发布任务总限时 30 分钟；仍失败时工作流会失败，可在分支仍指向该提交时重跑失败任务；GitHub 对已有 Release 的多个附件替换不提供原子操作。
 
 这里的年月版本表示 Kai 分发版本；EasyRPG 上游基础版本以及 Android 的递增 versionCode、现有 debug 签名仍由各自构建配置管理。
 
