@@ -87,6 +87,21 @@ Web 版默认启用 `ExtraRecommendedSoundFont`，使用 `resources/soundfonts/r
 
 已确认这能兼容 `もしもコレクション7` 一类使用该写法的工程。
 
+## 版本与自动发布
+
+在仓库根目录编辑 [RELEASE.md](RELEASE.md)：第一行填写 `# 年.月.当月序号`（例如 `# 2026.9.1`），下面填写当前版本的 Markdown 更新日志。月份为 1–12，序号从 1 开始，均不补零；CI 会校验格式和非空日志。
+
+每次提交到 `my-feature-stable`，或在该分支手动运行 **Build and Release**，都会构建并更新两类 GitHub Release：
+
+- `nightly`：始终跟随发布分支的最新成功构建，标记为预发布。
+- `RELEASE.md` 指定的版本（如 `2026.9.1`）：版本号相同就覆盖标签、日志和下载文件；改成 `2026.9.2` 就新建 Release，并保留 `2026.9.1`。数值最大的正式版本标记为 GitHub **Latest**。
+
+三个平台固定使用同一个提交，全部成功后才发布；过时构建会跳过发布，等待新提交的构建。正式版和 Nightly 使用同一批二进制。Web ZIP 与 Android APK 的正式版文件名包含版本号，Windows 保持 `Player.exe`。
+
+每个 Release 附带 `release-manifest.json`，记录提交 SHA、工作流运行、版本、文件大小和 SHA-256，发布日志也包含这些校验值。同版本覆盖不会保留旧包，复现问题时请同时记录版本号与提交 SHA；历史构建另受 GitHub Actions 产物保留期限制。上传失败时工作流会失败，可在分支仍指向该提交时重跑失败任务；GitHub 对已有 Release 的多个附件替换不提供原子操作。
+
+这里的年月版本表示 Kai 分发版本；EasyRPG 上游基础版本以及 Android 的递增 versionCode、现有 debug 签名仍由各自构建配置管理。
+
 ## 本地打包
 
 本地标准打包入口以 Docker Desktop 为准，和 `.github/workflows/nightly-release.yml` 共用同一套仓库内脚本，不再维护旧的本地 VS / CMake 手动 zip 流程。先启动 Docker Desktop，然后在仓库根目录运行：

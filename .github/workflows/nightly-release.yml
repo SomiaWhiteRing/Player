@@ -1,21 +1,17 @@
-name: Nightly Release
+name: Build and Release
 
 on:
   push:
     branches:
       - my-feature-stable
   workflow_dispatch:
-    inputs:
-      git-ref:
-        description: Git ref to release (optional)
-        required: false
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: nightly-release
-  cancel-in-progress: true
+  group: player-release
+  cancel-in-progress: false
 
 defaults:
   run:
@@ -23,16 +19,14 @@ defaults:
 
 env:
   TRACKED_BRANCH: my-feature-stable
-  NIGHTLY_TAG: nightly
-  RELEASE_TITLE: Nightly
   WINDOWS_ASSET_NAME: Player.exe
   WEB_ASSET_NAME: EasyRPG-Player-Kai-nightly-web.zip
   ANDROID_ASSET_NAME: EasyRPG-Player-Kai-nightly-android-debug.apk
-  LEGACY_WINDOWS_ARCHIVE_NAME: EasyRPG-Player-Kai-nightly-windows-x64.zip
 
 jobs:
   windows:
-    name: Build Windows Nightly
+    if: github.ref == 'refs/heads/my-feature-stable'
+    name: Build Windows
     runs-on: windows-2022
     env:
       BUILD_DIR: build/windows-x64-vs2022-release
@@ -41,18 +35,14 @@ jobs:
       TOOLCHAIN_URL: https://ci.easyrpg.org/downloads/windows/toolchain-windows.zip
 
     steps:
-      - name: Clone repository
+      - name: Clone pinned commit
         uses: actions/checkout@v4
-        if: github.event_name != 'workflow_dispatch' || github.event.inputs.git-ref == ''
         with:
           fetch-depth: 0
+          ref: ${{ github.sha }}
 
-      - name: Clone repository (custom ref)
-        uses: actions/checkout@v4
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.git-ref != ''
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.inputs.git-ref }}
+      - name: Validate release metadata
+        run: python builds/ci/release.py validate
 
       - name: Restore EasyRPG Windows toolchain cache
         id: toolchain-cache
@@ -90,22 +80,19 @@ jobs:
           if-no-files-found: error
 
   web:
-    name: Build Web Nightly
+    if: github.ref == 'refs/heads/my-feature-stable'
+    name: Build Web
     runs-on: ubuntu-24.04
 
     steps:
-      - name: Clone repository
+      - name: Clone pinned commit
         uses: actions/checkout@v4
-        if: github.event_name != 'workflow_dispatch' || github.event.inputs.git-ref == ''
         with:
           fetch-depth: 0
+          ref: ${{ github.sha }}
 
-      - name: Clone repository (custom ref)
-        uses: actions/checkout@v4
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.git-ref != ''
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.inputs.git-ref }}
+      - name: Validate release metadata
+        run: python builds/ci/release.py validate
 
       - name: Restore local Docker Web cache
         uses: actions/cache@v4
@@ -129,22 +116,19 @@ jobs:
           if-no-files-found: error
 
   android:
-    name: Build Android Nightly
+    if: github.ref == 'refs/heads/my-feature-stable'
+    name: Build Android
     runs-on: ubuntu-24.04
 
     steps:
-      - name: Clone repository
+      - name: Clone pinned commit
         uses: actions/checkout@v4
-        if: github.event_name != 'workflow_dispatch' || github.event.inputs.git-ref == ''
         with:
           fetch-depth: 0
+          ref: ${{ github.sha }}
 
-      - name: Clone repository (custom ref)
-        uses: actions/checkout@v4
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.git-ref != ''
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.inputs.git-ref }}
+      - name: Validate release metadata
+        run: python builds/ci/release.py validate
 
       - name: Restore local Docker Android cache
         uses: actions/cache@v4
@@ -169,111 +153,38 @@ jobs:
           if-no-files-found: error
 
   publish:
-    name: Publish Nightly
+    name: Publish Nightly and versioned release
     runs-on: ubuntu-24.04
-    needs:
-      - windows
-      - web
-      - android
+    needs: [windows, web, android]
+    permissions:
+      contents: write
     defaults:
       run:
         shell: bash
-
     steps:
-      - name: Clone repository
+      - name: Clone pinned commit
         uses: actions/checkout@v4
-        if: github.event_name != 'workflow_dispatch' || github.event.inputs.git-ref == ''
         with:
-          fetch-depth: 0
+          ref: ${{ github.sha }}
 
-      - name: Clone repository (custom ref)
-        uses: actions/checkout@v4
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.git-ref != ''
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          fetch-depth: 0
-          ref: ${{ github.event.inputs.git-ref }}
-
-      - name: Capture metadata
-        id: meta
-        run: |
-          {
-            echo "commit_sha=$(git rev-parse HEAD)"
-            echo "commit_short=$(git rev-parse --short HEAD)"
-            echo "commit_subject=$(git log -1 --pretty=%s)"
-          } >> "$GITHUB_OUTPUT"
+          python-version: '3.11'
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          path: ${{ runner.temp }}/nightly-assets
+          pattern: nightly-*
+          path: ${{ runner.temp }}/release-assets
+          merge-multiple: true
 
-      - name: Move nightly tag
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -f "$NIGHTLY_TAG" "${{ steps.meta.outputs.commit_sha }}"
-          git push origin "refs/tags/$NIGHTLY_TAG" --force
-
-      - name: Prepare release notes
-        id: notes
-        run: |
-          notes_file="$RUNNER_TEMP/nightly-release-notes.md"
-          built_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          run_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          commit_url="https://github.com/${{ github.repository }}/commit/${{ steps.meta.outputs.commit_sha }}"
-
-          cat > "$notes_file" <<EOF
-          Automated pre-release updated from branch $TRACKED_BRANCH.
-
-          - Commit: [${{ steps.meta.outputs.commit_short }}]($commit_url)
-          - Message: ${{ steps.meta.outputs.commit_subject }}
-          - Built at: $built_at
-          - Workflow run: $run_url
-          - Artifacts:
-            - $WINDOWS_ASSET_NAME built for Windows x64
-            - $WEB_ASSET_NAME built for Web/Emscripten
-            - $ANDROID_ASSET_NAME built for Android
-          EOF
-
-          echo "notes_file=$notes_file" >> "$GITHUB_OUTPUT"
-
-      - name: Create or update release
+      - name: Publish releases
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "$NIGHTLY_TAG" >/dev/null 2>&1; then
-            gh release edit "$NIGHTLY_TAG" \
-              --title "$RELEASE_TITLE" \
-              --notes-file "${{ steps.notes.outputs.notes_file }}" \
-              --prerelease
-          else
-            gh release create "$NIGHTLY_TAG" \
-              --title "$RELEASE_TITLE" \
-              --notes-file "${{ steps.notes.outputs.notes_file }}" \
-              --prerelease
-          fi
-
-      - name: Upload release assets
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          windows_asset="$RUNNER_TEMP/nightly-assets/nightly-windows/$WINDOWS_ASSET_NAME"
-          web_asset="$RUNNER_TEMP/nightly-assets/nightly-web/$WEB_ASSET_NAME"
-          android_asset="$RUNNER_TEMP/nightly-assets/nightly-android/$ANDROID_ASSET_NAME"
-
-          test -s "$windows_asset" || {
-            echo "Missing release asset: $windows_asset"
-            exit 1
-          }
-          test -s "$web_asset" || {
-            echo "Missing release asset: $web_asset"
-            exit 1
-          }
-          test -s "$android_asset" || {
-            echo "Missing release asset: $android_asset"
-            exit 1
-          }
-
-          gh release delete-asset "$NIGHTLY_TAG" "$LEGACY_WINDOWS_ARCHIVE_NAME" --yes >/dev/null 2>&1 || true
-          gh release delete-asset "$NIGHTLY_TAG" "$LEGACY_WINDOWS_ARCHIVE_NAME.sha256" --yes >/dev/null 2>&1 || true
-          gh release upload "$NIGHTLY_TAG" "$windows_asset" "$web_asset" "$android_asset" --clobber
+          python builds/ci/release.py publish \
+            --branch "$TRACKED_BRANCH" --project 'EasyRPG Player Kai' \
+            --assets "$RUNNER_TEMP/release-assets/$WINDOWS_ASSET_NAME" \
+              "$RUNNER_TEMP/release-assets/$WEB_ASSET_NAME" \
+              "$RUNNER_TEMP/release-assets/$ANDROID_ASSET_NAME"
