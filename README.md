@@ -32,6 +32,16 @@ EasyRPG Player 的苍旻白轮个人魔改造版。基于 EasyRPG Player 0.8.1.1
 
 关闭该开关后，仅在显式使用 `--test-play`、`TestPlay` 或在游戏浏览器中以调试方式启动游戏时启用调试模式。
 
+### Web 随附 SoundFont
+
+Web 版默认启用 `ExtraRecommendedSoundFont`，使用 `resources/soundfonts/recommended.sf2`。自动构建将它打包到 `easyrpg-player.data`，启动时预加载为虚拟文件 `/builtin/recommended.sf2`；无需给每个游戏重复添加音色库。
+
+部署 GitHub Nightly 的 Web ZIP 时，应一起发布 `index.html`、`easyrpg-player.js`、`easyrpg-player.wasm` 和 `easyrpg-player.data`。站点自行调用 `createEasyRpgPlayer` 时也必须提供 `.data`；如果设置 `locateFile`，它需要同时正确定位 `.wasm` 和 `.data`。
+
+初始化脚本保留 Emscripten 音色库预加载回调，等待资源挂载后才启动播放器。浏览器已保存的设置仍然有效：若之前关闭过额外功能中的「MIDI音效改良」或音频设置中的 FluidSynth，请在 `F1` 设置中重新启用；首次使用默认开启。
+
+初始化 MIDI 合成器后，调试日志中的 `Fluidsynth: Using soundfont /builtin/recommended.sf2` 表示随附音色库已成功加载。
+
 ### 添加对话历史记录
 
 在对话状态下，按下`~`键（ESC键下方的那个）或鼠标滚轮上滚可以打开对话历史记录界面，查看之前的对话内容。  

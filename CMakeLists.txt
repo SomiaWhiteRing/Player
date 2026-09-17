@@ -1267,8 +1267,11 @@ if(PLAYER_BUILD_EXECUTABLE AND ${PLAYER_TARGET_PLATFORM} MATCHES "^SDL.*$" AND N
 			 -sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE=['$autoResumeAudioContext','$dynCall'] \
 			 -sEXPORTED_RUNTIME_METHODS=['FS'] \
 			 -sEXPORTED_FUNCTIONS=_main,_malloc,_free")
-		set_source_files_properties("src/platform/sdl/main.cpp" PROPERTIES
-			OBJECT_DEPENDS "${PLAYER_JS_PREJS};${PLAYER_JS_POSTJS};${PLAYER_JS_SHELL}")
+		# These are linker inputs, including the .data preload generated from the
+		# SoundFont. Track them for cached Ninja/Make builds used by Web nightly.
+		set_property(TARGET ${EXE_NAME} APPEND PROPERTY LINK_DEPENDS
+			"${PLAYER_JS_PREJS}" "${PLAYER_JS_POSTJS}" "${PLAYER_JS_SHELL}"
+			"${PLAYER_RECOMMENDED_SOUNDFONT_FILE}")
 
 		if(PLAYER_JS_BUILD_SHELL)
 			set_target_properties(${EXE_NAME} PROPERTIES SUFFIX ".html")

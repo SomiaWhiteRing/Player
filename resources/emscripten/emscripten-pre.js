@@ -1,8 +1,11 @@
 // Note: The `Module` context is already initialized as an
 // empty object by emscripten even before the pre script
 Module = { ...Module,
-  preRun: [onPreRun],
-  postRun: [],
+  // --preload-file registers the bundled SoundFont loader before this script.
+  // Keep its callbacks and run dependencies so /builtin/recommended.sf2 is
+  // mounted before the player starts. Also preserve embedding page callbacks.
+  preRun: [].concat(Module.preRun || [], onPreRun),
+  postRun: Module.postRun || [],
 
   print: (...args) => {
     console.log(...args);
