@@ -286,7 +286,7 @@ public class WebImportViewModel extends AndroidViewModel {
 
     private static void validatePath(String path) throws ImportException {
         if (path.length() > 1024 || path.startsWith("/") || path.contains("\\") ||
-                path.contains(":") || path.matches(".*[\\x00-\\x1f\\x7f].*")) {
+                path.contains(":") || path.matches("(?s).*[\\x00-\\x1f\\x7f].*")) {
             throw new ImportException(R.string.web_import_invalid_metadata);
         }
         for (String part : path.split("/", -1)) {
