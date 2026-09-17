@@ -93,6 +93,20 @@ function parseArgs () {
 }
 
 function onPreRun () {
+  // Newer Emscripten runs preRun before --post-js. Prepare the game directory
+  // and save filesystem here, before mounting or starting the player.
+  FS.mkdir("easyrpg");
+  FS.chdir("easyrpg");
+
+  if (Module.game.length > 0) {
+    FS.mkdir(Module.game);
+    FS.chdir(Module.game);
+  }
+
+  if (Module.saveFs === undefined) {
+    Module.saveFs = IDBFS;
+  }
+
   // Retrieve save directory from persistent storage before using it
   FS.mkdir("Save");
   FS.mount(Module.saveFs, {}, 'Save');
@@ -101,7 +115,14 @@ function onPreRun () {
   FS.mkdir("/home/web_user/.config");
   FS.mount(IDBFS, {}, '/home/web_user/.config');
 
-  FS.syncfs(true, function(err) {});
+  addRunDependency("player-storage");
+  FS.syncfs(true, function(err) {
+    if (err) {
+      abort("Could not load player storage: " + err);
+      return;
+    }
+    removeRunDependency("player-storage");
+  });
 }
 
 Module.setStatus('Downloading...');
