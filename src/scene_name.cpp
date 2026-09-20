@@ -120,9 +120,8 @@ void Scene_Name::SetupLayouts() {
 	// Letter and symbol pages are used everywhere
 	layouts.push_back(Window_Keyboard::Letter);
 	layouts.push_back(Window_Keyboard::Symbol);
-	if (Player::IsCP936() && Player::player_config.extra_pinyin_input.Get()) {
-		layouts.push_back(Window_Keyboard::Pinyin);
-	}
+	// Pinyin input is temporarily unavailable until its controls are reworked.
+	// Keep the page disabled even when an existing config enables ExtraPinyinInput.
 }
 
 void Scene_Name::CreateKeyboardWindow() {

@@ -18,7 +18,6 @@ EasyRPG Player 的苍旻白轮个人魔改造版。基于 EasyRPG Player 0.8.1.1
 - `ExtraMoviePlayback`：兼容视频播放
 - `ExtraRecommendedSoundFont`：使用作者推荐的SoundFont
 - `ExtraNameInputChoices`：输入式解谜自动选项化
-- `ExtraPinyinInput`：角色名输入界面追加拼音输入页
 - `ExtraHideManiacLogs`：隐藏 Maniac 相关日志
 - `ExtraForceTestPlay`：强制启用 EasyRPG 调试模式
 
@@ -71,11 +70,9 @@ Web 版默认启用 `ExtraRecommendedSoundFont`，使用 `resources/soundfonts/r
 可以直接从答案中选择，或选择最后一项`主动输入`回退到原本的键盘输入界面。  
 适合汉化后默认选字式输入法难以覆盖答案名称的场景。
 
-### 拼音输入法
+### 拼音输入法（暂时停用）
 
-开启 `ExtraPinyinInput` 后，简体中文的角色名输入界面会追加 `<拼音>` 页。<br>
-在该页可以像常见拼音输入法一样连续输入拼音，支持单字和短语候选，例如 `nihao` 会候选 `你好`，`zhongguo` 会候选 `中国`。<br>
-空格提交当前候选，`1` 到 `4` 选择当前页候选，`PageUp` / `PageDown` 翻候选页，取消键或退格键会优先删除拼音串。
+拼音输入的按键操作和候选显示尚未完善，暂时关闭角色名输入界面的 `<拼音>` 页及追加功能设置中的开关。旧配置中的 `ExtraPinyinInput` 即使开启也不会显示入口；实现与词库保留，待操作逻辑修复后再恢复。
 
 拼音候选词库来自 [rime-pinyin-simp](https://github.com/rime/rime-pinyin-simp) 的袖珍简化字拼音词典，按 Apache-2.0 授权分发；许可文本见 `resources/pinyin/LICENSE-rime-pinyin-simp.txt`。
 
