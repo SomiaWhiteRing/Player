@@ -11,9 +11,9 @@ easyrpg-kai://import?manifest=<URL 编码的 HTTPS 清单地址>
 清单固定为 `/api/archive-versions/{id}/kai-import`，当前信任域名：
 
 - `https://viprpg-zh-archive.q578235562.workers.dev`
-- `https://viprpg-zh-archive-staging.q578235562.workers.dev`
+- `https://staging.viprpg.org`
 
-客户端拒绝其他来源、非 HTTPS、重定向、用户信息及非默认端口。以后启用独立域名时，需要同步修改网站按钮和 Android 白名单并发版。
+客户端拒绝其他来源、非 HTTPS、重定向、用户信息及非默认端口。独立预生产域名需要安装已更新来源白名单的新版 APK，旧版会拒绝导入。更换站点域名时，需要同步修改网站按钮和 Android 白名单并发版。
 
 清单格式：
 

@@ -85,7 +85,7 @@ public class WebImportViewModel extends AndroidViewModel {
             this.zipSize = zipSize;
             this.files = files;
             // Stable per site + snapshot; staging IDs must never collide with production IDs.
-            String site = download.getHost().contains("-staging.") ? "staging-" : "";
+            String site = "staging.viprpg.org".equals(download.getHost()) ? "staging-" : "";
             this.fileName = "VIPRPG-" + site + id + "-" + hash.substring(0, 16) + ".zip";
         }
     }
@@ -196,7 +196,7 @@ public class WebImportViewModel extends AndroidViewModel {
         if (!"https".equals(uri.getScheme()) || uri.getUserInfo() != null || uri.getPort() != -1 ||
                 uri.getFragment() != null ||
                 !("viprpg-zh-archive.q578235562.workers.dev".equals(uri.getEncodedAuthority()) ||
-                  "viprpg-zh-archive-staging.q578235562.workers.dev".equals(uri.getEncodedAuthority()))) {
+                  "staging.viprpg.org".equals(uri.getEncodedAuthority()))) {
             throw new ImportException(R.string.web_import_invalid_source);
         }
     }
