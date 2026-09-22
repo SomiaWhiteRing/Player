@@ -50,6 +50,8 @@ namespace Cache {
 	BitmapRef Monster(std::string_view filename);
 	BitmapRef Panorama(std::string_view filename);
 	BitmapRef Picture(std::string_view filename, bool transparent);
+	void PreloadPicture(std::string_view filename, bool transparent);
+	void UpdatePicturePreload();
 	BitmapRef Chipset(std::string_view filename);
 	BitmapRef Title(std::string_view filename);
 	BitmapRef System(std::string_view filename);

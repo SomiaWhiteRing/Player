@@ -127,6 +127,8 @@ private:
 	Color flash_effect;
 
 	BitmapRef bitmap_effects;
+	BitmapRef bitmap_frame;
+	Rect bitmap_frame_src_rect;
 
 	Rect bitmap_effects_src_rect;
 

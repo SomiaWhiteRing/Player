@@ -183,12 +183,11 @@ package_web() {
 			-DCMAKE_TOOLCHAIN_FILE="$emscripten_work_dir/emsdk-portable/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake" \
 			-DPLAYER_PREFIX_PATH_APPEND="$emscripten_work_dir" \
 			-DPLAYER_FIND_ROOT_PATH_APPEND=ON \
-			-DPLAYER_JS_BUILD_SHELL=ON \
 			-DPLAYER_ENABLE_TESTS=OFF \
 			-DPLAYER_BUILD_LIBLCF=ON \
 			-DPLAYER_BUILD_LIBLCF_GIT=https://github.com/SomiaWhiteRing/liblcf.git \
 			-DPLAYER_BUILD_LIBLCF_BRANCH=my-feature-stable \
-			-DPLAYER_TARGET_PLATFORM=SDL3 \
+			-DPLAYER_TARGET_PLATFORM=Web \
 			-DPLAYER_VERSION_APPEND="$version_suffix"
 
 		log "Building Web"
@@ -196,7 +195,7 @@ package_web() {
 	)
 
 	log "Verifying Web outputs"
-	for file in easyrpg-player.html easyrpg-player.js easyrpg-player.wasm; do
+	for file in easyrpg-player.js easyrpg-player.wasm player-host.js player-worker.js player-audio.js; do
 		test -s "$build_dir/$file" || {
 			echo "Missing build output: $build_dir/$file"
 			exit 1
@@ -206,7 +205,7 @@ package_web() {
 		echo "Missing build output: $build_dir/easyrpg-player.data"
 		exit 1
 	}
-	grep -q "createEasyRpgPlayer" "$build_dir/easyrpg-player.html"
+	grep -q "createEasyRpgEngine" "$build_dir/easyrpg-player.js"
 
 	log "Packaging Web artifact"
 	BUILD_DIR="$build_dir" \

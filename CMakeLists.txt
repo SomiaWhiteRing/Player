@@ -598,7 +598,9 @@ set_property(SOURCE src/version.cpp PROPERTY COMPILE_DEFINITIONS
 )
 
 # Platform setup
-if(NINTENDO_3DS)
+if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+	set(PLAYER_TARGET_PLATFORM "Web" CACHE STRING "Site-local Web Worker platform" FORCE)
+elseif(NINTENDO_3DS)
 	set(PLAYER_TARGET_PLATFORM "3ds" CACHE STRING "Platform to compile for.")
 elseif(NINTENDO_SWITCH)
 	set(PLAYER_TARGET_PLATFORM "switch" CACHE STRING "Platform to compile for.")
@@ -631,7 +633,10 @@ if(APPLE AND NOT IOS AND NOT CMAKE_SYSTEM_NAME STREQUAL "tvOS")
 	set(MACOS TRUE)
 endif()
 
-if(PLAYER_TARGET_PLATFORM STREQUAL "SDL3")
+if(PLAYER_TARGET_PLATFORM STREQUAL "Web")
+	target_sources(${PROJECT_NAME} PRIVATE src/platform/emscripten/ui.cpp src/platform/emscripten/ui.h)
+	target_compile_definitions(${PROJECT_NAME} PUBLIC PLAYER_WEB=1)
+elseif(PLAYER_TARGET_PLATFORM STREQUAL "SDL3")
 	target_sources(${PROJECT_NAME} PRIVATE
 		src/platform/sdl/sdl3_ui.cpp
 		src/platform/sdl/sdl3_ui.h)
@@ -766,7 +771,10 @@ else()
 endif()
 
 # Sound system to use
-if(PLAYER_TARGET_PLATFORM STREQUAL "SDL3")
+if(PLAYER_TARGET_PLATFORM STREQUAL "Web")
+	set(PLAYER_AUDIO_BACKEND "Web" CACHE STRING "Web Worker audio" FORCE)
+	set_property(CACHE PLAYER_AUDIO_BACKEND PROPERTY STRINGS Web)
+elseif(PLAYER_TARGET_PLATFORM STREQUAL "SDL3")
 	set(PLAYER_AUDIO_BACKEND "SDL3" CACHE STRING "Audio system to use. Options: SDL3 OFF")
 	set_property(CACHE PLAYER_AUDIO_BACKEND PROPERTY STRINGS SDL3 OFF)
 elseif(PLAYER_TARGET_PLATFORM STREQUAL "SDL2")
@@ -920,10 +928,7 @@ if(APPLE)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-	option(PLAYER_JS_BUILD_SHELL "Build the Player executable as a shell file (.html) instead of a standalone javascript file (.js)" OFF)
-	set(PLAYER_JS_GAME_URL "games/" CACHE STRING "Game URL/directory where the web player searches for games")
 	set(PLAYER_JS_OUTPUT_NAME "easyrpg-player" CACHE STRING "Output name of the js, html and wasm files")
-	set_property(SOURCE src/async_handler.cpp APPEND PROPERTY COMPILE_DEFINITIONS "EM_GAME_URL=\"${PLAYER_JS_GAME_URL}\"")
 endif()
 
 # Endianess check
@@ -1212,8 +1217,11 @@ if(PLAYER_HAS_AUDIO)
 endif()
 
 # Executable
-if(PLAYER_BUILD_EXECUTABLE AND ${PLAYER_TARGET_PLATFORM} MATCHES "^SDL.*$" AND NOT PLAYER_CONSOLE_PORT)
-	if(APPLE)
+if(PLAYER_BUILD_EXECUTABLE AND (PLAYER_TARGET_PLATFORM MATCHES "^SDL.*$" OR PLAYER_TARGET_PLATFORM STREQUAL "Web") AND NOT PLAYER_CONSOLE_PORT)
+	if(PLAYER_TARGET_PLATFORM STREQUAL "Web")
+		set(EXE_NAME "easyrpg-player")
+		add_executable(${EXE_NAME} src/platform/emscripten/main.cpp)
+	elseif(APPLE)
 		set(EXE_NAME "EasyRPG-Player.app")
 		set_source_files_properties(${${PROJECT_NAME}_BUNDLE_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 		add_executable(${EXE_NAME} MACOSX_BUNDLE "src/platform/sdl/main.cpp" ${${PROJECT_NAME}_BUNDLE_ICON})
@@ -1259,24 +1267,17 @@ if(PLAYER_BUILD_EXECUTABLE AND ${PLAYER_TARGET_PLATFORM} MATCHES "^SDL.*$" AND N
 
 		set(PLAYER_JS_PREJS "${CMAKE_CURRENT_SOURCE_DIR}/resources/emscripten/emscripten-pre.js")
 		set(PLAYER_JS_POSTJS "${CMAKE_CURRENT_SOURCE_DIR}/resources/emscripten/emscripten-post.js")
-		set(PLAYER_JS_SHELL "${CMAKE_CURRENT_SOURCE_DIR}/resources/emscripten/emscripten-shell.html")
 
 		set_property(TARGET ${EXE_NAME} PROPERTY LINK_FLAGS
-			"-sALLOW_MEMORY_GROWTH -sMINIFY_HTML=0 -sMODULARIZE -sEXPORT_NAME=createEasyRpgPlayer \
-			 -sEXIT_RUNTIME --bind --pre-js ${PLAYER_JS_PREJS} --post-js ${PLAYER_JS_POSTJS} \
-			 -sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE=['$autoResumeAudioContext','$dynCall'] \
-			 -sEXPORTED_RUNTIME_METHODS=['FS'] \
+			"-sALLOW_MEMORY_GROWTH -sENVIRONMENT=worker -sMODULARIZE -sEXPORT_NAME=createEasyRpgEngine \
+			 --bind --pre-js ${PLAYER_JS_PREJS} --post-js ${PLAYER_JS_POSTJS} \
+			 -sEXPORTED_RUNTIME_METHODS=['FS','HEAPU8','HEAP16'] \
 			 -sEXPORTED_FUNCTIONS=_main,_malloc,_free")
 		# These are linker inputs, including the .data preload generated from the
 		# SoundFont. Track them for cached Ninja/Make builds used by Web nightly.
 		set_property(TARGET ${EXE_NAME} APPEND PROPERTY LINK_DEPENDS
-			"${PLAYER_JS_PREJS}" "${PLAYER_JS_POSTJS}" "${PLAYER_JS_SHELL}"
+			"${PLAYER_JS_PREJS}" "${PLAYER_JS_POSTJS}"
 			"${PLAYER_RECOMMENDED_SOUNDFONT_FILE}")
-
-		if(PLAYER_JS_BUILD_SHELL)
-			set_target_properties(${EXE_NAME} PROPERTIES SUFFIX ".html")
-			set_property(TARGET ${EXE_NAME} APPEND_STRING PROPERTY LINK_FLAGS " --shell-file ${PLAYER_JS_SHELL}")
-		endif()
 
 		set_property(TARGET ${EXE_NAME} APPEND_STRING PROPERTY LINK_FLAGS " --preload-file ${PLAYER_RECOMMENDED_SOUNDFONT_FILE}@/builtin/recommended.sf2")
 
@@ -1290,7 +1291,10 @@ if(PLAYER_BUILD_EXECUTABLE AND ${PLAYER_TARGET_PLATFORM} MATCHES "^SDL.*$" AND N
 				src/platform/emscripten/movie_player_web.cpp
 				src/platform/emscripten/movie_player_web.h)
 
-		target_link_libraries(${EXE_NAME} "idbfs.js")
+		target_link_libraries(${EXE_NAME} "idbfs.js" "workerfs.js")
+		foreach(web_file player-host.js player-worker.js player-audio.js)
+			configure_file(resources/emscripten/${web_file} ${CMAKE_CURRENT_BINARY_DIR}/${web_file} COPYONLY)
+		endforeach()
 
 		set_target_properties(${EXE_NAME} PROPERTIES OUTPUT_NAME "${PLAYER_JS_OUTPUT_NAME}")
 	endif()
@@ -1317,11 +1321,12 @@ if(PLAYER_BUILD_EXECUTABLE AND ${PLAYER_TARGET_PLATFORM} MATCHES "^SDL.*$" AND N
 	endif()
 
 	if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-		# Emscripten does not install the wasm file (or the js file when building a shell)
-		if(PLAYER_JS_BUILD_SHELL)
-			install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${PLAYER_JS_OUTPUT_NAME}.js DESTINATION ${CMAKE_INSTALL_BINDIR})
-		endif()
-		install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${PLAYER_JS_OUTPUT_NAME}.wasm DESTINATION ${CMAKE_INSTALL_BINDIR})
+		install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${PLAYER_JS_OUTPUT_NAME}.wasm
+			${CMAKE_CURRENT_BINARY_DIR}/${PLAYER_JS_OUTPUT_NAME}.data
+			${CMAKE_CURRENT_BINARY_DIR}/player-host.js
+			${CMAKE_CURRENT_BINARY_DIR}/player-worker.js
+			${CMAKE_CURRENT_BINARY_DIR}/player-audio.js
+			DESTINATION ${CMAKE_INSTALL_BINDIR})
 	endif()
 elseif(PLAYER_CONSOLE_PORT AND NOT PLAYER_TARGET_PLATFORM STREQUAL "libretro")
 	set(CPACK_PLATFORM "${PLAYER_TARGET_PLATFORM}")

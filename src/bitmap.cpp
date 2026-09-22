@@ -70,6 +70,25 @@ BitmapRef Bitmap::Create(Bitmap const& source, Rect const& src_rect, bool transp
 	return std::make_shared<Bitmap>(source, src_rect, transparent);
 }
 
+BitmapRef Bitmap::CreateReadOnlyView(const BitmapRef& source, Rect const& src_rect) {
+	Rect rect = src_rect;
+	rect.Adjust(source->GetRect());
+	if (rect.IsEmpty()) {
+		return {};
+	}
+	auto* pixels = static_cast<uint8_t*>(source->pixels())
+		+ static_cast<size_t>(rect.y) * source->pitch()
+		+ static_cast<size_t>(rect.x) * source->format.bytes;
+	auto view = Create(pixels, rect.width, rect.height, source->pitch(), source->format);
+	view->pixel_owner = source;
+	view->read_only = true;
+	view->image_opacity = source->GetImageOpacity();
+	view->original_bpp = source->original_bpp;
+	view->SetId(fmt::format("{}:view:{}:{},{},{},{}", source->GetId(),
+		static_cast<void*>(source.get()), rect.x, rect.y, rect.width, rect.height));
+	return view;
+}
+
 BitmapRef Bitmap::Create(int width, int height, bool transparent, int /* bpp */) {
 	return std::make_shared<Bitmap>(width, height, transparent);
 }
@@ -169,7 +188,11 @@ Bitmap::Bitmap(Bitmap const& source, Rect const& src_rect, bool transparent) {
 
 	Init(src_rect.width, src_rect.height, (void *) NULL);
 
-	Blit(0, 0, source, src_rect, Opacity::Opaque());
+	if (source.width() > max_composite_dimension || source.height() > max_composite_dimension) {
+		CopyLargeBitmap(0, 0, source, src_rect);
+	} else {
+		Blit(0, 0, source, src_rect, Opacity::Opaque());
+	}
 }
 
 bool Bitmap::WritePNG(std::ostream& os) const {
@@ -552,8 +575,35 @@ void Bitmap::ConvertImage(int& width, int& height, void*& pixels, bool transpare
 
 	Bitmap src(pixels, width, height, 0, img_format);
 	Clear();
-	BlitFast(0, 0, src, src.GetRect(), Opacity::Opaque());
+	if (width > max_composite_dimension || height > max_composite_dimension) {
+		CopyLargeBitmap(0, 0, src, src.GetRect());
+	} else {
+		BlitFast(0, 0, src, src.GetRect(), Opacity::Opaque());
+	}
 	free(pixels);
+}
+
+void Bitmap::CopyLargeBitmap(int x, int y, Bitmap const& src, Rect const& src_rect) {
+	Rect source = src_rect;
+	Rect dest(x, y, source.width, source.height);
+	if (!Rect::AdjustRectangles(source, dest, src.GetRect())
+			|| !Rect::AdjustRectangles(dest, source, GetRect())) {
+		return;
+	}
+
+	// Both views use local coordinates so even the last rows of a long sheet
+	// stay within Pixman's signed 16-bit source bounds.
+	for (int row = 0; row < source.height; row += max_composite_dimension) {
+		for (int col = 0; col < source.width; col += max_composite_dimension) {
+			int w = std::min(max_composite_dimension, source.width - col);
+			int h = std::min(max_composite_dimension, source.height - row);
+			auto src_tile = GetSubimage(src, Rect(source.x + col, source.y + row, w, h));
+			auto dst_tile = GetSubimage(*this, Rect(dest.x + col, dest.y + row, w, h));
+			pixman_image_composite32(PIXMAN_OP_SRC,
+				src_tile.get(), nullptr, dst_tile.get(),
+				0, 0, 0, 0, 0, 0, w, h);
+		}
+	}
 }
 
 void* Bitmap::pixels() {
@@ -642,7 +692,10 @@ void Bitmap::BlitFast(int x, int y, Bitmap const & src, Rect const & src_rect, O
 }
 
 PixmanImagePtr Bitmap::GetSubimage(Bitmap const& src, const Rect& src_rect) {
-	uint8_t* pixels = (uint8_t*) src.pixels() + src_rect.x * src.bpp() + src_rect.y * src.pitch();
+	// Color depth excludes padding bits (e.g. 24-bit RGB stored in 32 bits).
+	uint8_t* pixels = (uint8_t*) src.pixels()
+		+ static_cast<size_t>(src_rect.x) * src.format.bytes
+		+ static_cast<size_t>(src_rect.y) * src.pitch();
 	return PixmanImagePtr{ pixman_image_create_bits(src.pixman_format, src_rect.width, src_rect.height,
 									(uint32_t*) pixels, src.pitch()) };
 }

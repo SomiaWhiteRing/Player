@@ -20,7 +20,9 @@
 #include "bitmap.h"
 #include "player.h"
 
-#if USE_SDL==3
+#if defined(PLAYER_WEB)
+#  include "platform/emscripten/ui.h"
+#elif USE_SDL==3
 #  include "platform/sdl/sdl3_ui.h"
 #elif USE_SDL==2
 #  include "platform/sdl/sdl2_ui.h"
@@ -39,7 +41,9 @@
 std::shared_ptr<BaseUi> DisplayUi;
 
 std::shared_ptr<BaseUi> BaseUi::CreateUi(long width, long height, const Game_Config& cfg) {
-#if USE_SDL==3
+#if defined(PLAYER_WEB)
+	return std::make_shared<WebUi>(width, height, cfg);
+#elif USE_SDL==3
 	return std::make_shared<Sdl3Ui>(width, height, cfg);
 #elif USE_SDL==2
 	return std::make_shared<Sdl2Ui>(width, height, cfg);

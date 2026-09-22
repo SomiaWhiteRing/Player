@@ -35,7 +35,7 @@ EasyRPG Player 的苍旻白轮个人魔改造版。基于 EasyRPG Player 0.8.1.1
 
 Web 版默认启用 `ExtraRecommendedSoundFont`，使用 `resources/soundfonts/recommended.sf2`。自动构建将它打包到 `easyrpg-player.data`，启动时预加载为虚拟文件 `/builtin/recommended.sf2`；无需给每个游戏重复添加音色库。
 
-部署 GitHub Nightly 的 Web ZIP 时，应一起发布 `index.html`、`easyrpg-player.js`、`easyrpg-player.wasm` 和 `easyrpg-player.data`。站点自行调用 `createEasyRpgPlayer` 时也必须提供 `.data`；如果设置 `locateFile`，它需要同时正确定位 `.wasm` 和 `.data`。
+本分支的 Web ZIP 专供 VIPRPG-ZH-Archive 使用。站点通过 `player-host.js` 的 `createEasyRpgPlayer({ runtimeBase, workId, packages })` 启动专用 Worker，将已经安装的 OPFS pack 挂载为 WORKERFS。完整部署须包含 `player-host.js`、`player-worker.js`、`player-audio.js`、`easyrpg-player.js`、`easyrpg-player.wasm` 和 `easyrpg-player.data`。引擎在 Worker 内同步读取本地资源，使用 OffscreenCanvas/WebGL2 和 AudioWorklet；不需要 SharedArrayBuffer 或跨源隔离。销毁播放文档前必须等待返回对象的 `stop()` 完成，以确认 IDBFS 存档已经写入。
 
 初始化脚本保留 Emscripten 音色库预加载回调，等待资源挂载后才启动播放器。浏览器已保存的设置仍然有效：若之前关闭过额外功能中的「MIDI音效改良」或音频设置中的 FluidSynth，请在 `F1` 设置中重新启用；首次使用默认开启。
 
@@ -121,7 +121,7 @@ Web 版默认启用 `ExtraRecommendedSoundFont`，使用 `resources/soundfonts/r
 - `EasyRPG-Player-Kai-nightly-web.zip`
 - `EasyRPG-Player-Kai-nightly-android-debug.apk`
 
-Web zip 需要通过 HTTP 服务访问。游戏数据放在 `games/default/`，并使用 `resources/emscripten/indexgen.php` 生成 `index.json`。
+Web ZIP 由 VIPRPG-ZH-Archive 的运行时导入脚本接入网站。网站负责将游戏安装到 OPFS，并把 pack 与文件切片索引交给 `createEasyRpgPlayer`；不再提供独立的 `games/default/` 页面或 `indexgen.php`。
 
 Windows x64 的 `Player.exe` 由 GitHub Workflow 的 `windows-2022` job 调用 `builds/ci/package-windows-nightly.ps1` 生成；它依赖 Visual Studio 2022 runner 和 `x64-windows-static` vcpkg 工具链，不在本地 Linux Docker 容器里另建一套交叉编译流程。标准分发产物以 Nightly Action 上传的 `Player.exe` 为准。
 

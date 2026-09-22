@@ -41,14 +41,15 @@ void Sprite::BlitScreen(Bitmap& dst) {
 	if (!bitmap || (opacity_top_effect <= 0 && opacity_bottom_effect <= 0))
 		return;
 
-	BitmapRef draw_bitmap = Refresh(src_rect_effect);
+	Rect effect_rect = src_rect_effect;
+	BitmapRef draw_bitmap = Refresh(effect_rect);
 	if (!draw_bitmap) {
 		return;
 	}
 
 	bitmap_changed = false;
 
-	Rect rect = src_rect_effect.GetSubRect(src_rect);
+	Rect rect = bitmap_frame ? bitmap_frame->GetRect() : effect_rect.GetSubRect(src_rect);
 	if (draw_bitmap == bitmap_effects) {
 		// When a "sprite rect" (src_rect_effect) is used bitmap_effects
 		// only has the size of this subrect instead of the whole bitmap
@@ -90,6 +91,23 @@ BitmapRef Sprite::Refresh(Rect& rect) {
 
 	rect.Adjust(bitmap->GetWidth(), bitmap->GetHeight());
 
+	BitmapRef source = bitmap;
+	if (bitmap->GetWidth() > Bitmap::max_composite_dimension
+			|| bitmap->GetHeight() > Bitmap::max_composite_dimension) {
+		rect = rect.GetSubRect(src_rect);
+		rect.Adjust(bitmap->GetRect());
+		if (rect.IsEmpty()) {
+			return {};
+		}
+		// Apply effects to the current frame, not the oversized spritesheet.
+		if (!bitmap_frame || bitmap_changed || rect != bitmap_frame_src_rect) {
+			bitmap_frame = Bitmap::CreateReadOnlyView(bitmap, rect);
+			bitmap_frame_src_rect = rect;
+			bitmap_effects.reset();
+		}
+		source = bitmap_frame;
+	}
+
 	bool no_tone = tone_effect == Tone();
 	bool no_flash = flash_effect.alpha == 0;
 	bool no_flip = !flipx_effect && !flipy_effect;
@@ -105,7 +123,7 @@ BitmapRef Sprite::Refresh(Rect& rect) {
 	}
 
 	if (no_effects) {
-		return bitmap;
+		return source;
 	} else if (bitmap_effects) {
 		return bitmap_effects;
 	} else {
@@ -114,7 +132,8 @@ BitmapRef Sprite::Refresh(Rect& rect) {
 		current_flip_x = flipx_effect;
 		current_flip_y = flipy_effect;
 
-		bitmap_effects = Cache::SpriteEffect(bitmap, rect, flipx_effect, flipy_effect, current_tone, current_flash);
+		bitmap_effects = Cache::SpriteEffect(source, bitmap_frame ? source->GetRect() : rect,
+			flipx_effect, flipy_effect, current_tone, current_flash);
 		bitmap_effects_src_rect = rect;
 
 		return bitmap_effects;
@@ -123,6 +142,7 @@ BitmapRef Sprite::Refresh(Rect& rect) {
 
 void Sprite::SetBitmap(BitmapRef const& nbitmap) {
 	bitmap = nbitmap;
+	bitmap_frame.reset();
 	if (!bitmap) {
 		src_rect = Rect();
 	} else {

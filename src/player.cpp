@@ -284,6 +284,7 @@ void Player::MainLoop() {
 		Input::UpdateSystem();
 	}
 
+	Cache::UpdatePicturePreload();
 	Player::Draw();
 
 	Scene::old_instances.clear();
@@ -431,16 +432,6 @@ void Player::Exit() {
 	}
 
 	Graphics::UpdateSceneCallback();
-#ifdef EMSCRIPTEN
-	BitmapRef surface = DisplayUi->GetDisplaySurface();
-	std::string message = "It's now safe to turn off\n      your browser.";
-	DisplayUi->CleanDisplay();
-	Text::Draw(*surface, 84, DisplayUi->GetHeight() / 2 - 16, *Font::DefaultBitmapFont(), Color(221, 123, 64, 255), message);
-	DisplayUi->UpdateDisplay();
-
-	auto ret = FileFinder::Root().OpenOutputStream("/tmp/message.png", std::ios_base::binary | std::ios_base::out | std::ios_base::trunc);
-	if (ret) Output::TakeScreenshot(ret);
-#endif
 	Player::ResetGameObjects();
 	Font::Dispose();
 	Graphics::Quit();

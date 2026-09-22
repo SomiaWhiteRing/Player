@@ -38,6 +38,7 @@
 #include "string_view.h"
 
 struct Transform;
+namespace ImagePNG { class PictureLoader; }
 
 /**
  * Base Bitmap class.
@@ -80,6 +81,8 @@ public:
 	 * @param transparent allow transparency on bitmap.
 	 */
 	static BitmapRef Create(Bitmap const& source, Rect const& src_rect, bool transparent = true);
+	/** Creates a read-only view that keeps the source pixel storage alive. */
+	static BitmapRef CreateReadOnlyView(const BitmapRef& source, Rect const& src_rect);
 
 	/**
 	 * Creates a surface.
@@ -590,6 +593,8 @@ public:
 
 	static DynamicFormat ChooseFormat(const DynamicFormat& format);
 	static void SetFormat(const DynamicFormat& format);
+	// Pixman rejects source dimensions >= 32767, even for a small source rect.
+	static constexpr int max_composite_dimension = 32766;
 
 	static DynamicFormat pixel_format;
 	static DynamicFormat opaque_pixel_format;
@@ -610,17 +615,19 @@ public:
 	ImageOpacity ComputeImageOpacity(Rect rect) const;
 
 protected:
+	friend class ImagePNG::PictureLoader;
 	DynamicFormat format;
 
 	ImageOpacity image_opacity = ImageOpacity::Alpha_8Bit;
 	TileOpacity tile_opacity;
 	Color bg_color, sh_color;
 	FontRef font;
+	BitmapRef pixel_owner;
 
 	std::string id;
 
 	/** Bpp of the source image */
-	int original_bpp;
+	int original_bpp = 0;
 
 	/** Bitmap data. */
 	PixmanImagePtr bitmap;
@@ -628,6 +635,7 @@ protected:
 
 	void Init(int width, int height, void* data, int pitch = 0, bool destroy = true);
 	void ConvertImage(int& width, int& height, void*& pixels, bool transparent);
+	void CopyLargeBitmap(int x, int y, Bitmap const& src, Rect const& src_rect);
 
 	static PixmanImagePtr GetSubimage(Bitmap const& src, const Rect& src_rect);
 	static inline void MultiplyAlpha(uint8_t &r, uint8_t &g, uint8_t &b, const uint8_t &a) {

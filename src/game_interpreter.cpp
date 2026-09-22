@@ -26,6 +26,7 @@
 #include <cassert>
 #include "game_interpreter.h"
 #include "async_handler.h"
+#include "cache.h"
 #include "audio.h"
 #include "game_dynrpg.h"
 #include "filefinder.h"
@@ -736,7 +737,7 @@ bool Game_Interpreter::ExecuteCommand(lcf::rpg::EventCommand const& com) {
 		case Cmd::Loop:
 			return CmdSetup<&Game_Interpreter::CommandLoop, 0>(com);
 		case Cmd::BreakLoop:
-			return CmdSetup<&Game_Interpreter::CommandBreakLoop, 0>(com);
+			return CmdSetup<&Game_Interpreter::CommandBreakLoop, 2>(com);
 		case Cmd::EndLoop:
 			return CmdSetup<&Game_Interpreter::CommandEndLoop, 0>(com);
 		case Cmd::EraseEvent:
@@ -1948,6 +1949,28 @@ bool Game_Interpreter::CommandWait(lcf::rpg::EventCommand const& com) { // code 
 	auto& index = GetFrame().current_command;
 
 	bool maniac = Player::IsPatchManiac();
+	if (maniac || Player::IsRPG2k3ECommands()) {
+		// Look only through a short, straight sequence of waits and audio commands.
+		// Names depending on variables must be resolved when the command executes.
+		const auto& commands = GetFrame().commands;
+		for (size_t i = index + 1; i < commands.size() && i <= index + 16; ++i) {
+			const auto& next = commands[i];
+			const auto code = static_cast<Cmd>(next.code);
+			if (code == Cmd::ShowPicture) {
+				const auto& p = next.parameters;
+				if (p.size() >= 30 && (p[17] & 0xF00) == 0 && p[19] == 0
+						&& p[22] > 0 && p[23] > 0 && (p[22] > 1 || p[23] > 1)
+						&& p[24] == 2 && p[25] > 0 && !next.string.empty()) {
+					Cache::PreloadPicture(ToString(next.string), p[7] > 0);
+				}
+				break;
+			}
+			if (code != Cmd::Wait && code != Cmd::PlayBGM && code != Cmd::PlaySound
+					&& code != Cmd::Comment && code != Cmd::Comment_2) {
+				break;
+			}
+		}
+	}
 
 	// Wait a given time
 	if (com.parameters.size() <= 1 || (!maniac && !Player::IsRPG2k3Commands())) {
@@ -3826,17 +3849,49 @@ bool Game_Interpreter::CommandLoop(lcf::rpg::EventCommand const& com) { // code 
 	return true;
 }
 
-bool Game_Interpreter::CommandBreakLoop(lcf::rpg::EventCommand const& /* com */) { // code 12220
+bool Game_Interpreter::CommandBreakLoop(lcf::rpg::EventCommand const& com) { // code 12220
 	auto& frame = GetFrame();
 	const auto& list = frame.commands;
 	auto& index = frame.current_command;
 
 	// BreakLoop will jump to the end of the event if there is no loop.
 
-	bool has_bug = !Player::IsPatchManiac();
-	if (!has_bug) {
-		SkipToNextConditional({ Cmd::EndLoop }, list[index].indent - 1);
-		++index;
+	if (Player::IsPatchManiac()) {
+		// Maniac adds continue (type 1) and a zero-based enclosing-loop level.
+		// Find the open loop scopes first: a conditional or an already closed
+		// sibling loop must not count as an enclosing loop.
+		int level = std::max(0, com.parameters[1]);
+		int indent = com.indent;
+		int loop_indent = -1;
+		for (int idx = index - 1; idx >= 0; --idx) {
+			if (list[idx].indent >= indent) {
+				continue;
+			}
+			indent = list[idx].indent;
+			if (static_cast<Cmd>(list[idx].code) == Cmd::Loop && level-- == 0) {
+				loop_indent = indent;
+				break;
+			}
+		}
+
+		if (loop_indent < 0) {
+			index = static_cast<int>(list.size());
+			return true;
+		}
+
+		const bool is_continue = com.parameters[0] == 1;
+		SkipToNextConditional({ Cmd::EndLoop }, loop_indent);
+		// Continue executes EndLoop so counted loops advance and while loops
+		// recheck their condition. Break skips it entirely.
+		if (!is_continue && index < static_cast<int>(list.size())) {
+			++index;
+		}
+
+		const auto keep = static_cast<size_t>((loop_indent + (is_continue ? 1 : 0)) * 2);
+		if (frame.maniac_loop_info.size() > keep) {
+			frame.maniac_loop_info.resize(keep);
+			frame.maniac_loop_info_size = static_cast<int32_t>(keep / 2);
+		}
 		return true;
 	}
 
