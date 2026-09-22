@@ -29,7 +29,7 @@ import org.easyrpg.player.settings.SettingsManager;
 public class WebImportActivity extends BaseActivity {
     private WebImportViewModel model;
     private Button action, cancel;
-    private TextView gameTitle, fileSize, site, status;
+    private TextView gameTitle, fileSize, status;
     private ProgressBar progress;
     private ImageView cover;
     private boolean openingDownloads;
@@ -41,7 +41,6 @@ public class WebImportActivity extends BaseActivity {
         cover = findViewById(R.id.import_cover);
         gameTitle = findViewById(R.id.import_game_title);
         fileSize = findViewById(R.id.import_file_size);
-        site = findViewById(R.id.import_site);
         status = findViewById(R.id.import_status);
         action = findViewById(R.id.import_action);
         cancel = findViewById(R.id.import_cancel);
@@ -49,7 +48,7 @@ public class WebImportActivity extends BaseActivity {
         model = new ViewModelProvider(this).get(WebImportViewModel.class);
         model.state.observe(this, this::render);
         action.setOnClickListener(v -> act());
-        cancel.setOnClickListener(v -> backPressed());
+        cancel.setOnClickListener(v -> openGameList());
         if (model.state.getValue() == null) model.load(incomingLink(getIntent()));
     }
 
@@ -94,8 +93,6 @@ public class WebImportActivity extends BaseActivity {
         }
         gameTitle.setVisibility(hasMetadata ? View.VISIBLE : View.GONE);
         fileSize.setVisibility(hasMetadata && !exists ? View.VISIBLE : View.GONE);
-        site.setVisibility(hasMetadata && !exists && "staging.viprpg.org".equals(state.metadata.download.getHost())
-                ? View.VISIBLE : View.GONE);
         cover.setImageBitmap(state.cover);
         if (state.cover == null) cover.setImageResource(R.drawable.ic_gamepad_black);
         cover.setScaleType(state.cover == null ? ImageView.ScaleType.CENTER : ImageView.ScaleType.FIT_CENTER);
@@ -152,6 +149,10 @@ public class WebImportActivity extends BaseActivity {
 
     private void openDownloads() {
         WebImportService.start(this);
+        openGameList();
+    }
+
+    private void openGameList() {
         startActivity(new Intent(this, GameBrowserActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
         finish();

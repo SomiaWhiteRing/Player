@@ -33,15 +33,6 @@
             android:textSize="14sp"
             android:visibility="gone" />
         <TextView
-            android:id="@+id/import_site"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="@string/web_import_staging"
-            android:textColor="?android:attr/textColorSecondary"
-            android:textSize="12sp"
-            android:visibility="gone" />
-        <TextView
             android:id="@+id/import_status"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

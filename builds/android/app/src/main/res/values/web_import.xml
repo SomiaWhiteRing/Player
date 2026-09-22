@@ -36,7 +36,6 @@
     <string name="web_import_remove">Remove download</string>
     <string name="web_import_removing">Removing download…</string>
     <string name="web_import_file_size">File size: %1$s</string>
-    <string name="web_import_staging">Staging site</string>
     <string name="web_import_choose_folder">Choose folder</string>
     <string name="web_import_choose_folder_prompt">Choose a game folder first.</string>
     <string name="web_import_preparing">Preparing game…</string>

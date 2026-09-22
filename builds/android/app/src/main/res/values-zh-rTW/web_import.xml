@@ -36,7 +36,6 @@
     <string name="web_import_remove">移除下載</string>
     <string name="web_import_removing">正在移除下載…</string>
     <string name="web_import_file_size">檔案大小：%1$s</string>
-    <string name="web_import_staging">預發佈站</string>
     <string name="web_import_choose_folder">選擇資料夾</string>
     <string name="web_import_choose_folder_prompt">請先選擇遊戲資料夾。</string>
     <string name="web_import_preparing">正在準備遊戲…</string>
