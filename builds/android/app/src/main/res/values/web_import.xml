@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="web_import_title">Import from VIPRPG Archive</string>
-    <string name="web_import_intro">Load a published game snapshot from VIPRPG Archive.</string>
+    <string name="web_import_title">Import games from VIPRPG.org</string>
+    <string name="web_import_intro">Load a published game from VIPRPG.org.</string>
     <string name="web_import_loading">Loading game information…</string>
-    <string name="web_import_confirm">Import this game into your EasyRPG games folder? Existing games and saves are kept. New snapshots use separate save folders. Keep this screen open until the import finishes.</string>
+    <string name="web_import_confirm">Import this game? The download continues in the background. View progress or pause and resume from the game list. The game becomes available after verification finishes.</string>
     <string name="web_import_details">%1$s\nSnapshot: %2$s · Download: %3$s\nSource: %4$s\nDestination: games/%5$s</string>
-    <string name="web_import_start">Confirm import / select folder</string>
-    <string name="web_import_open_games">Open game library</string>
+    <string name="web_import_start">Import</string>
     <string name="web_import_close">Close</string>
     <string name="web_import_retry">Retry</string>
     <string name="web_import_downloading">Downloading…</string>
@@ -14,11 +13,8 @@
     <string name="web_import_saving">Saving to games…</string>
     <string name="web_import_verifying_storage">Checking the saved ZIP…</string>
     <string name="web_import_complete">Import complete. The game is ready in your library.</string>
-    <string name="web_import_exists">This snapshot already exists in games. Nothing was overwritten.</string>
-    <string name="web_import_cancelled">Import cancelled. No game was installed.</string>
-    <string name="web_import_cancelling">Cancelling and cleaning up…</string>
-    <string name="web_import_busy">An import is running. Finish or cancel it, then open the other website link again.</string>
-    <string name="web_import_folder_ready">Folder selected. Confirm import to download the game into its games folder.</string>
+    <string name="web_import_exists">This game is already installed.</string>
+    <string name="web_import_busy">Game information is loading. Please try the other link again shortly.</string>
     <string name="web_import_invalid_source">Invalid import link. Only the official VIPRPG Archive and its staging site are supported.</string>
     <string name="web_import_invalid_metadata">The website returned invalid or unsupported import information.</string>
     <string name="web_import_network_error">Could not reach the website. Check your connection and retry.</string>
@@ -29,4 +25,17 @@
     <string name="web_import_storage_error">Cannot save to the selected games folder. Check folder access and free space. Any unfinished .kai-import-*.part file may be removed.</string>
     <string name="web_import_space_error">Not enough temporary storage. Free space on this device and try again.</string>
     <string name="web_import_failed">Import failed. Check the connection, folder access and available space, then retry.</string>
+    <string name="web_import_cover">Game cover</string>
+    <string name="web_import_already_queued">This game is already in the download list.</string>
+    <string name="web_import_checking_local">Checking installed games…</string>
+    <string name="web_import_queued">Waiting to download…</string>
+    <string name="web_import_paused">Download paused</string>
+    <string name="web_import_pausing">Pausing…</string>
+    <string name="web_import_pause">Pause</string>
+    <string name="web_import_resume">Resume</string>
+    <string name="web_import_transfer">%1$d%% · %2$s / %3$s · %4$s/s</string>
+    <string name="web_import_download_channel">Game downloads</string>
+    <string name="web_import_background_failed">Could not start the download. Tap Resume to try again.</string>
+    <string name="web_import_remove">Remove download</string>
+    <string name="web_import_removing">Removing download…</string>
 </resources>

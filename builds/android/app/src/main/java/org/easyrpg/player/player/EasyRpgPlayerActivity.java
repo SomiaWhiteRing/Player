@@ -24,6 +24,7 @@
 
 package org.easyrpg.player.player;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.ClipDescription;
@@ -346,6 +347,8 @@ public class EasyRpgPlayerActivity extends SDLActivity implements NavigationView
     }
 
     @Override
+    // API 33+ uses the registered OnBackInvokedCallback; SDL still needs key events below 33.
+    @SuppressLint("GestureBackNavigation")
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (Build.VERSION.SDK_INT >= 33) {
             // Uses OnBackInvokedDispatcher

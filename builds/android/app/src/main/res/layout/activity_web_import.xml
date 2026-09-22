@@ -15,6 +15,14 @@
             android:text="@string/web_import_title"
             android:textSize="24sp"
             android:textStyle="bold" />
+        <ImageView
+            android:id="@+id/import_cover"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:layout_marginTop="20dp"
+            android:scaleType="fitCenter"
+            android:contentDescription="@string/web_import_cover"
+            android:visibility="gone" />
         <TextView
             android:id="@+id/import_details"
             android:layout_width="match_parent"

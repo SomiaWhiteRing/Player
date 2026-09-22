@@ -20,10 +20,6 @@ public class ScrollView extends android.widget.ScrollView {
     private WindowInsets insets = null;
     private Drawable statusBarBackground = null;
 
-    private static final int[] THEME_ATTRS = {
-        android.R.attr.colorPrimaryDark
-    };
-
     public ScrollView(Context context) {
         super(context);
         init();
@@ -68,8 +64,8 @@ public class ScrollView extends android.widget.ScrollView {
             });
 
 
-            try (TypedArray a = getContext().obtainStyledAttributes(THEME_ATTRS)) {
-                statusBarBackground = a.getDrawable(0);
+            try (TypedArray a = getContext().obtainStyledAttributes(R.styleable.StatusBarBackground)) {
+                statusBarBackground = a.getDrawable(R.styleable.StatusBarBackground_android_colorPrimaryDark);
             }
         }
     }
@@ -83,7 +79,7 @@ public class ScrollView extends android.widget.ScrollView {
     protected void onDraw(@NonNull Canvas c) {
         super.onDraw(c);
 
-        if (insets != null && insets.getSystemWindowInsetTop() > 0) {
+        if (statusBarBackground != null && insets != null && insets.getSystemWindowInsetTop() > 0) {
             statusBarBackground.setBounds(0, 0, getWidth(), insets.getSystemWindowInsetTop());
             statusBarBackground.draw(c);
         }

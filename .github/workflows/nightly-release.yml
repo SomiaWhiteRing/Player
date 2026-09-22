@@ -153,7 +153,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    name: Publish Nightly and versioned release
+    name: Publish Nightly and new versions
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     needs: [windows, web, android]

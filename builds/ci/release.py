@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish the checked-out commit using RELEASE.md and already-built assets."""
+"""Update Nightly, and publish a numbered release only when RELEASE.md advances."""
 
 import argparse
 from datetime import datetime, timezone
@@ -110,10 +110,16 @@ def main():
         return
     releases = paginated("releases?per_page=100")
     numbered_tag = args.tag_prefix + version
-    latest = not any(
-        version_key(release["tag_name"]) > version_key(numbered_tag)
-        for release in releases if not release["prerelease"] and not release["draft"]
+    latest_published_version = max(
+        (version_key(release["tag_name"]) for release in releases
+         if not release["prerelease"] and not release["draft"]),
+        default=(),
     )
+    channels = [("nightly", "nightly")]
+    if version_key(numbered_tag) > latest_published_version:
+        channels.append(("release", numbered_tag))
+    else:
+        summary(f"Version {version} has not advanced beyond the latest published release; updating Nightly only.")
     server = os.environ.get("GITHUB_SERVER_URL", "https://github.com")
     run_url = f"{server}/{repo}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
     run_attempt = os.environ.get("GITHUB_RUN_ATTEMPT", "1")
@@ -122,9 +128,16 @@ def main():
     release_file_hash = digest(Path("RELEASE.md"))
 
     with tempfile.TemporaryDirectory(prefix="github-release-") as temp:
-        for channel, tag in (("nightly", "nightly"), ("release", numbered_tag)):
+        for channel, tag in channels:
             if not current():
                 return
+            if channel == "release":
+                # Recheck before touching a numbered tag: an already-published version is immutable.
+                releases = paginated("releases?per_page=100")
+                if any(not release["prerelease"] and not release["draft"] and
+                       version_key(release["tag_name"]) >= version_key(tag) for release in releases):
+                    summary(f"Skipped numbered release {tag}: this version or a newer version is already published.")
+                    continue
             staging = Path(temp) / channel
             staging.mkdir()
             assets = []
@@ -156,13 +169,17 @@ def main():
                 if channel == "nightly" else f"{args.project} {version}"
             )
             checksums = "\n".join(f"| `{item['name']}` | {item['size']} | `{item['sha256']}` |" for item in assets)
+            update_policy = (
+                "Nightly 会被后续成功构建覆盖；正式版本只在版本号提高时发布，已有正式版保持不变。"
+                if channel == "nightly" else "此正式版本不会被后续同版本构建覆盖；后续构建请查看 Nightly。"
+            )
             notes.write_text(
                 f"{introduction}\n\n{changelog}\n\n## 构建来源\n\n"
                 f"- 提交：[{commit}]({server}/{repo}/commit/{commit})\n"
                 f"- 提交说明：{subject}\n"
                 f"- 构建：[运行 {os.environ['GITHUB_RUN_ID']}，第 {run_attempt} 次]({run_url}/attempts/{run_attempt})\n"
                 f"- 发布于：{published_at}\n\n"
-                "同版本会被后续提交覆盖；请同时记录提交 SHA 和文件 SHA-256。完整构建信息见 `release-manifest.json`。\n\n"
+                f"{update_policy}请同时记录提交 SHA 和文件 SHA-256。完整构建信息见 `release-manifest.json`。\n\n"
                 "| 文件 | 字节数 | SHA-256 |\n| --- | ---: | --- |\n" + checksums + "\n",
                 encoding="utf-8",
             )
@@ -170,8 +187,13 @@ def main():
             title = f"{args.project} {'Nightly' if channel == 'nightly' else version}"
             ref = f"refs/tags/{tag}"
             expected = remote_ref(ref)
-            # Only replace the exact tag state observed by this run.
-            run("git", "push", f"--force-with-lease={ref}:{expected}", "origin", f"{commit}:{ref}")
+            if channel == "nightly":
+                # Only replace the exact Nightly tag state observed by this run.
+                run("git", "push", f"--force-with-lease={ref}:{expected}", "origin", f"{commit}:{ref}")
+            elif not expected:
+                run("git", "push", "origin", f"{commit}:{ref}")
+            elif expected != commit:
+                raise ValueError(f"Numbered tag {tag} already points to another commit; refusing to replace it")
             if existing is None:
                 gh("release", "create", tag, "--repo", repo, "--verify-tag", "--draft",
                    "--title", title, "--notes-file", str(notes))
@@ -199,7 +221,7 @@ def main():
             gh("release", "edit", tag, "--repo", repo, "--verify-tag", "--target", commit,
                "--title", title, "--notes-file", str(notes), "--draft=false",
                f"--prerelease={'true' if channel == 'nightly' else 'false'}",
-               f"--latest={'true' if channel == 'release' and latest else 'false'}")
+               f"--latest={'true' if channel == 'release' else 'false'}")
             summary(f"Published [{title}]({server}/{repo}/releases/tag/{tag}) from `{commit}`.")
 
 

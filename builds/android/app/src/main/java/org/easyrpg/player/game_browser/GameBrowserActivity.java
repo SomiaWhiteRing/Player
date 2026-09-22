@@ -27,6 +27,7 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.ConcatAdapter;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.navigation.NavigationView;
@@ -35,12 +36,18 @@ import org.easyrpg.player.BaseActivity;
 import org.easyrpg.player.Helper;
 import org.easyrpg.player.R;
 import org.easyrpg.player.settings.SettingsManager;
+import org.easyrpg.player.imports.WebImportAdapter;
+import org.easyrpg.player.imports.WebImportDownloads;
+import org.easyrpg.player.imports.WebImportClient.Stage;
+import org.easyrpg.player.imports.WebImportService;
 import org.libsdl.app.SDL;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 public class GameBrowserActivity extends BaseActivity
         implements NavigationView.OnNavigationItemSelectedListener {
@@ -50,6 +57,10 @@ public class GameBrowserActivity extends BaseActivity
     private RecyclerView gamesGridRecyclerView;
     private int nbOfGamesPerLine;
     private boolean isScanProcessing;
+    private boolean rescanRequested;
+    private WebImportDownloads downloads;
+    private final WebImportAdapter downloadAdapter = new WebImportAdapter();
+    private final Set<String> completedImports = new HashSet<>();
     private static List<Game> displayedGamesList;
 
     @Override
@@ -74,6 +85,19 @@ public class GameBrowserActivity extends BaseActivity
         navigationView.setNavigationItemSelectedListener(this);
 
         onBackPressedCallback.setEnabled(true);
+        downloads = WebImportDownloads.get(this);
+        for (WebImportDownloads.Download download : downloads.snapshot()) {
+            if (download.stage == Stage.COMPLETE) completedImports.add(download.id);
+        }
+        if (!completedImports.isEmpty()) resetGamesList();
+        downloads.observe().observe(this, snapshot -> {
+            downloadAdapter.submit(snapshot);
+            boolean completed = false;
+            for (WebImportDownloads.Download download : snapshot) {
+                if (download.stage == Stage.COMPLETE && completedImports.add(download.id)) completed = true;
+            }
+            if (completed) scanGamesAndDisplayResult(true);
+        });
     }
 
     @Override
@@ -81,6 +105,7 @@ public class GameBrowserActivity extends BaseActivity
         super.onResume();
 
         scanGamesAndDisplayResult(false);
+        if (downloads.hasActive()) WebImportService.start(this);
         GameBrowserHelper.displayHowToMessageOnFirstStartup(this);
     }
 
@@ -179,6 +204,7 @@ public class GameBrowserActivity extends BaseActivity
         // Verify that a scan isn't processing
         // TODO : Make the use of isScanProcessing synchronized (not really useful)
         if (isScanProcessing){
+            if (forceScan) rescanRequested = true;
             return;
         }
         isScanProcessing = true;
@@ -191,6 +217,7 @@ public class GameBrowserActivity extends BaseActivity
             }
 
             resetGamesList();
+            gamesGridRecyclerView = null;
 
             // Empty the games list and display a loading icon
             RelativeLayout content_layout = findViewById(R.id.browser_layout);
@@ -206,8 +233,8 @@ public class GameBrowserActivity extends BaseActivity
                 // "Only the original thread that created a view hierarchy can touch its views."
                 runOnUiThread(() -> {
                     // Populate the list view
-                    if (!gameScanner.hasError()) {
-                        GameBrowserActivity.displayedGamesList = gameScanner.getGameList();
+                    if (!gameScanner.hasError() || downloads.hasPending()) {
+                        GameBrowserActivity.displayedGamesList = new ArrayList<>(gameScanner.getGameList());
                         displayGamesList();
                     } else {
                         // Display the errors list
@@ -231,6 +258,10 @@ public class GameBrowserActivity extends BaseActivity
                     }
 
                     isScanProcessing = false;
+                    if (rescanRequested) {
+                        rescanRequested = false;
+                        scanGamesAndDisplayResult(true);
+                    }
                 });
             }).start();
         } else {
@@ -257,7 +288,9 @@ public class GameBrowserActivity extends BaseActivity
     public void reorderGameList() {
         // Sort the games list : alphabetically ordered, favorite in first
         Collections.sort(displayedGamesList);
-        gamesGridRecyclerView.setAdapter(new MyAdapter(this, displayedGamesList, nbOfGamesPerLine));
+        downloadAdapter.submit(downloads.snapshot());
+        gamesGridRecyclerView.setAdapter(new ConcatAdapter(downloadAdapter,
+                new MyAdapter(this, displayedGamesList, nbOfGamesPerLine)));
     }
 
     /**
@@ -268,7 +301,7 @@ public class GameBrowserActivity extends BaseActivity
             // Determine the layout template (List or Grid, number of element per line for the grid)
             DisplayMetrics displayMetrics = this.getResources().getDisplayMetrics();
             float dpWidth = displayMetrics.widthPixels / displayMetrics.density;
-            this.nbOfGamesPerLine = (int) (dpWidth / THUMBNAIL_HORIZONTAL_SIZE_DPI);
+            this.nbOfGamesPerLine = Math.max(1, (int) (dpWidth / THUMBNAIL_HORIZONTAL_SIZE_DPI));
 
             gamesGridRecyclerView.setLayoutManager(new GridLayoutManager(this, nbOfGamesPerLine));
         }

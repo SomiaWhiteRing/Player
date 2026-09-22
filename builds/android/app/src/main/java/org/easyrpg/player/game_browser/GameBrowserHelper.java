@@ -183,15 +183,21 @@ public class GameBrowserHelper {
 
             // Extract the selected folder from the URI
             Uri uri = resultData.getData();
+            if (uri == null) return SafError.BAD_CONTENT_PROVIDER_BASE_FOLDER_NOT_FOUND;
 
             if (uri.toString().startsWith("content://com.android.providers.downloads")) {
                 return SafError.DOWNLOAD_SELECTED;
             }
 
-            // Ask for permanent access to this folder
-            final int takeFlags = resultData.getFlags()
-                & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-            activity.getContentResolver().takePersistableUriPermission(uri, takeFlags);
+            // Games require both permissions. Only persist permissions actually granted by the picker.
+            if ((resultData.getFlags() & Intent.FLAG_GRANT_READ_URI_PERMISSION) == 0) {
+                return SafError.BAD_CONTENT_PROVIDER_READ;
+            }
+            if ((resultData.getFlags() & Intent.FLAG_GRANT_WRITE_URI_PERMISSION) == 0) {
+                return SafError.BAD_CONTENT_PROVIDER_WRITE;
+            }
+            activity.getContentResolver().takePersistableUriPermission(uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
 
             // Check if write operations inside the folder work as expected
             SafError error = Helper.testContentProvider(activity, uri);

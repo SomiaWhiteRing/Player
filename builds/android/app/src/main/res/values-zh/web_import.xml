@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="web_import_title">从 VIPRPG 归档站导入</string>
-    <string name="web_import_intro">读取 VIPRPG 归档站已发布的游戏快照。</string>
+    <string name="web_import_title">从VIPRPG.org导入游戏</string>
+    <string name="web_import_intro">读取 VIPRPG.org 已发布的游戏。</string>
     <string name="web_import_loading">正在读取游戏信息…</string>
-    <string name="web_import_confirm">将游戏导入 EasyRPG 的 games 文件夹？已有游戏和存档会保留；不同快照使用独立存档目录。请保持此页面开启，直到导入完成。</string>
+    <string name="web_import_confirm">导入此游戏？下载会在后台继续，可在游戏列表查看进度、暂停或继续。下载并校验完成后即可启动。</string>
     <string name="web_import_details">%1$s\n快照：%2$s · 下载大小：%3$s\n来源：%4$s\n保存位置：games/%5$s</string>
-    <string name="web_import_start">确认导入／选择文件夹</string>
-    <string name="web_import_open_games">打开游戏列表</string>
+    <string name="web_import_start">导入</string>
     <string name="web_import_close">关闭</string>
     <string name="web_import_retry">重试</string>
     <string name="web_import_downloading">正在下载…</string>
@@ -14,11 +13,8 @@
     <string name="web_import_saving">正在保存到 games…</string>
     <string name="web_import_verifying_storage">正在校验已保存的 ZIP…</string>
     <string name="web_import_complete">导入完成，可在游戏列表中打开。</string>
-    <string name="web_import_exists">games 中已存在此快照，没有覆盖文件。</string>
-    <string name="web_import_cancelled">导入已取消，未安装游戏。</string>
-    <string name="web_import_cancelling">正在取消并清理临时文件…</string>
-    <string name="web_import_busy">正在导入游戏。请完成或取消后，再次打开另一个网站链接。</string>
-    <string name="web_import_folder_ready">文件夹已选择。再次确认导入，即可下载到其中的 games 文件夹。</string>
+    <string name="web_import_exists">本地已存在此游戏。</string>
+    <string name="web_import_busy">正在读取游戏信息，请稍后再次打开另一个链接。</string>
     <string name="web_import_invalid_source">导入链接无效，仅支持 VIPRPG 归档站正式站及预发布站。</string>
     <string name="web_import_invalid_metadata">网站返回的导入信息无效或不受支持。</string>
     <string name="web_import_network_error">无法连接网站，请检查网络后重试。</string>
@@ -29,4 +25,17 @@
     <string name="web_import_storage_error">无法保存到 games，请检查文件夹权限及剩余空间。未完成的 .kai-import-*.part 文件可手动删除。</string>
     <string name="web_import_space_error">设备临时存储空间不足，请释放空间后重试。</string>
     <string name="web_import_failed">导入失败，请检查网络、文件夹权限及剩余空间后重试。</string>
+    <string name="web_import_cover">游戏封面</string>
+    <string name="web_import_already_queued">此游戏已在下载列表中。</string>
+    <string name="web_import_checking_local">正在检测本地游戏…</string>
+    <string name="web_import_queued">等待下载…</string>
+    <string name="web_import_paused">已暂停下载</string>
+    <string name="web_import_pausing">正在暂停…</string>
+    <string name="web_import_pause">暂停</string>
+    <string name="web_import_resume">继续</string>
+    <string name="web_import_transfer">%1$d%% · %2$s / %3$s · %4$s/秒</string>
+    <string name="web_import_download_channel">游戏下载</string>
+    <string name="web_import_background_failed">无法启动下载，请点击继续重试。</string>
+    <string name="web_import_remove">移除下载</string>
+    <string name="web_import_removing">正在移除下载…</string>
 </resources>
