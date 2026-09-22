@@ -11,7 +11,6 @@ import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
-import android.text.format.Formatter;
 import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
@@ -102,11 +101,9 @@ public class WebImportService extends Service {
                 .setContentText(active == null ? getString(R.string.web_import_queued) : getString(active.message))
                 .setContentIntent(PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE))
                 .setOngoing(true).setOnlyAlertOnce(true).setCategory(NotificationCompat.CATEGORY_PROGRESS)
-                .setProgress(100, active == null ? 0 : active.percent, active == null);
+                .setProgress(100, active == null ? 0 : active.percent, active == null || active.indeterminate());
         if (active != null) {
-            builder.setSubText(getString(R.string.web_import_transfer, active.percent,
-                    Formatter.formatFileSize(this, active.bytes), Formatter.formatFileSize(this, active.metadata.zipSize),
-                    Formatter.formatFileSize(this, active.speed)));
+            if (!active.preparing()) builder.setSubText(active.transferText(this));
             Intent pause = new Intent(this, WebImportService.class).setAction("pause").putExtra("download", active.id);
             builder.addAction(android.R.drawable.ic_media_pause, getString(R.string.web_import_pause),
                     PendingIntent.getService(this, 1, pause, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));

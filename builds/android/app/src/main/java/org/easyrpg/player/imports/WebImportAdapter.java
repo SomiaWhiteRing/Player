@@ -1,6 +1,5 @@
 package org.easyrpg.player.imports;
 
-import android.text.format.Formatter;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -50,13 +49,13 @@ public final class WebImportAdapter extends RecyclerView.Adapter<WebImportAdapte
         holder.cover.setImageBitmap(download.cover);
         if (download.cover == null) holder.cover.setImageResource(R.drawable.ic_gamepad_black);
         holder.status.setText(download.message);
-        holder.progress.setIndeterminate(download.stage == Stage.QUEUED || download.stage == Stage.PAUSING);
+        holder.progress.setIndeterminate(download.indeterminate());
         holder.progress.setProgress(download.percent);
-        holder.transfer.setText(context.getString(R.string.web_import_transfer, download.percent,
-                Formatter.formatFileSize(context, download.bytes), Formatter.formatFileSize(context, download.metadata.zipSize),
-                Formatter.formatFileSize(context, download.speed)));
+        holder.transfer.setVisibility(download.preparing() ? View.GONE : View.VISIBLE);
+        holder.transfer.setText(download.transferText(context));
         holder.action.setEnabled(download.stage != Stage.PAUSING && download.stage != Stage.REMOVING);
-        holder.action.setText(download.resumable() ? R.string.web_import_resume : R.string.web_import_pause);
+        holder.action.setText(download.stage == Stage.ERROR ? R.string.web_import_retry :
+                download.stage == Stage.PAUSED ? R.string.web_import_resume : R.string.web_import_pause);
         holder.remove.setVisibility(download.resumable() ? View.VISIBLE : View.GONE);
         holder.remove.setOnClickListener(v -> WebImportDownloads.get(context).remove(download.id));
         holder.action.setOnClickListener(v -> {

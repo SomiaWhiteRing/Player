@@ -54,12 +54,15 @@ public class WebImportViewModel extends AndroidViewModel {
             client = loader;
             try {
                 Metadata metadata = loader.load(link);
+                Log.i("KaiImport", "Preview archive=" + metadata.archiveVersionId + " source=" + metadata.download.getHost()
+                        + " destination=games/" + metadata.fileName + " size=" + metadata.zipSize);
                 Bitmap cover = null;
                 try { cover = loader.readCover(metadata); }
                 catch (Exception e) { Log.w("KaiImport", "Cover unavailable", e); }
                 State result = check(metadata, cover);
                 if (request == generation) state.postValue(result);
             } catch (Exception e) {
+                Log.w("KaiImport", "Cannot load import preview", e);
                 if (request == generation) state.postValue(new State(Stage.ERROR, null, null,
                         e instanceof WebImportClient.ImportException ? ((WebImportClient.ImportException) e).message : R.string.web_import_failed));
             }
@@ -72,8 +75,12 @@ public class WebImportViewModel extends AndroidViewModel {
         WebImportDownloads downloads = WebImportDownloads.get(getApplication());
         boolean installed = downloads.isInstalled(metadata, games);
         boolean pending = downloads.contains(metadata, folder);
-        return new State(installed || pending ? Stage.EXISTS : Stage.READY, metadata, cover,
-                installed ? R.string.web_import_exists : pending ? R.string.web_import_already_queued : R.string.web_import_confirm);
+        if (installed || pending) return new State(Stage.EXISTS, metadata, cover,
+                installed ? R.string.web_import_exists : R.string.web_import_already_queued);
+        if (games == null || !games.isDirectory() || !games.canRead() || !games.canWrite()) {
+            return new State(Stage.NEEDS_FOLDER, metadata, cover, R.string.web_import_choose_folder_prompt);
+        }
+        return new State(Stage.READY, metadata, cover, 0);
     }
 
     public void refreshLocal() {
@@ -86,6 +93,7 @@ public class WebImportViewModel extends AndroidViewModel {
                 State result = check(current.metadata, current.cover);
                 if (request == generation) state.postValue(result);
             } catch (RuntimeException e) {
+                Log.w("KaiImport", "Cannot check game folder", e);
                 if (request == generation) state.postValue(new State(Stage.ERROR, current.metadata, current.cover, R.string.web_import_storage_error));
             }
         });
@@ -100,13 +108,22 @@ public class WebImportViewModel extends AndroidViewModel {
             try {
                 State checked = check(current.metadata, current.cover);
                 if (request != generation) return;
-                if (checked.stage == Stage.EXISTS) { state.postValue(checked); return; }
+                if (checked.stage != Stage.READY) { state.postValue(checked); return; }
                 WebImportDownloads.get(getApplication()).enqueue(link, current.metadata, current.cover, folder);
                 if (request == generation) state.postValue(new State(Stage.QUEUED, current.metadata, current.cover, R.string.web_import_queued));
             } catch (Exception e) {
+                Log.w("KaiImport", "Cannot queue import", e);
                 if (request == generation) state.postValue(new State(Stage.ERROR, current.metadata, current.cover, R.string.web_import_failed));
             }
         });
+    }
+
+    public void storageError(RuntimeException error) {
+        Log.w("KaiImport", "Cannot select game folder", error);
+        ++generation;
+        State current = state.getValue();
+        state.setValue(new State(Stage.ERROR, current == null ? null : current.metadata,
+                current == null ? null : current.cover, R.string.web_import_storage_error));
     }
 
     @Override protected void onCleared() {

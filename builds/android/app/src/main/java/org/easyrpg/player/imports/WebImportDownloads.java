@@ -6,6 +6,7 @@ import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.text.format.Formatter;
 import android.util.AtomicFile;
 import android.util.Log;
 
@@ -63,14 +64,25 @@ public final class WebImportDownloads {
             metadata = task.metadata;
             cover = task.cover;
             stage = task.stage;
-            percent = task.percent;
-            message = task.message;
+            // This is download progress, so later verification/copy percentages must not reset it.
+            percent = (int) Math.min(100, task.bytes * 100 / metadata.zipSize);
+            message = preparing() ? R.string.web_import_preparing : task.message;
             bytes = task.bytes;
             speed = task.speed;
         }
 
         public boolean active() { return isActive(stage); }
         public boolean resumable() { return stage == Stage.PAUSED || stage == Stage.ERROR; }
+        public boolean preparing() { return stage == Stage.VERIFYING || stage == Stage.SAVING; }
+        public boolean indeterminate() { return preparing() || stage == Stage.QUEUED || stage == Stage.PAUSING || stage == Stage.REMOVING; }
+
+        public String transferText(Context context) {
+            String completed = Formatter.formatFileSize(context, bytes);
+            String total = Formatter.formatFileSize(context, metadata.zipSize);
+            return stage == Stage.DOWNLOADING
+                    ? context.getString(R.string.web_import_transfer, percent, completed, total, Formatter.formatFileSize(context, speed))
+                    : context.getString(R.string.web_import_transfer_paused, percent, completed, total);
+        }
     }
 
     private static final class Task {

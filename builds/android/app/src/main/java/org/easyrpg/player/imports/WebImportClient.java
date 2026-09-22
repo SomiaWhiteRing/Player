@@ -49,7 +49,7 @@ public final class WebImportClient {
     private Metadata metadata;
     private static final ExecutorService DISCONNECT = Executors.newCachedThreadPool();
 
-    public enum Stage { LOADING, READY, EXISTS, QUEUED, DOWNLOADING, VERIFYING, SAVING, PAUSING, PAUSED, REMOVING, COMPLETE, ERROR }
+    public enum Stage { LOADING, READY, NEEDS_FOLDER, EXISTS, QUEUED, DOWNLOADING, VERIFYING, SAVING, PAUSING, PAUSED, REMOVING, COMPLETE, ERROR }
 
     interface Progress {
         void update(Stage stage, int percent, long downloaded, long speed, int message);

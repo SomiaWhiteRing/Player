@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="web_import_title">從VIPRPG.org匯入遊戲</string>
-    <string name="web_import_intro">讀取 VIPRPG.org 已發佈的遊戲。</string>
     <string name="web_import_loading">正在讀取遊戲資訊…</string>
-    <string name="web_import_confirm">匯入此遊戲？下載會在背景繼續，可在遊戲列表查看進度、暫停或繼續。下載並驗證完成後即可啟動。</string>
-    <string name="web_import_details">%1$s\n快照：%2$s · 下載大小：%3$s\n來源：%4$s\n儲存位置：games/%5$s</string>
     <string name="web_import_start">匯入</string>
     <string name="web_import_close">關閉</string>
     <string name="web_import_retry">重試</string>
@@ -14,17 +11,17 @@
     <string name="web_import_verifying_storage">正在驗證已儲存的 ZIP…</string>
     <string name="web_import_complete">匯入完成，可在遊戲列表中開啟。</string>
     <string name="web_import_exists">本機已存在此遊戲。</string>
-    <string name="web_import_busy">正在讀取遊戲資訊，請稍後再次開啟另一個連結。</string>
-    <string name="web_import_invalid_source">匯入連結無效，僅支援 VIPRPG 歸檔站正式站及預發佈站。</string>
-    <string name="web_import_invalid_metadata">網站傳回的匯入資訊無效或不受支援。</string>
-    <string name="web_import_network_error">無法連線網站，請檢查網路後重試。</string>
-    <string name="web_import_unavailable">此快照已下架或不再是目前版本，請重新開啟遊戲頁面。</string>
-    <string name="web_import_unsupported">無法匯入此遊戲。僅支援 RPG Maker 2000／2003 快照，最大 1 GiB、50,000 個檔案。</string>
-    <string name="web_import_changed">匯入期間遊戲快照發生變化，請重新開啟遊戲頁面後重試。</string>
-    <string name="web_import_integrity_error">下載的遊戲不完整或驗證失敗，請重試。</string>
-    <string name="web_import_storage_error">無法儲存到 games，請檢查資料夾權限及剩餘空間。未完成的 .kai-import-*.part 檔案可手動刪除。</string>
-    <string name="web_import_space_error">裝置暫存空間不足，請釋放空間後重試。</string>
-    <string name="web_import_failed">匯入失敗，請檢查網路、資料夾權限及剩餘空間後重試。</string>
+    <string name="web_import_busy">正在讀取遊戲資訊，請稍後重試。</string>
+    <string name="web_import_invalid_source">匯入連結無效，請從 VIPRPG.org 重新開啟。</string>
+    <string name="web_import_invalid_metadata">無法讀取遊戲資訊，請重新開啟遊戲頁面。</string>
+    <string name="web_import_network_error">無法連線，請檢查網路後重試。</string>
+    <string name="web_import_unavailable">遊戲已下架或更新，請重新開啟遊戲頁面。</string>
+    <string name="web_import_unsupported">暫不支援匯入此遊戲。</string>
+    <string name="web_import_changed">遊戲已更新，請重新開啟遊戲頁面。</string>
+    <string name="web_import_integrity_error">遊戲檔案損壞，請重試。</string>
+    <string name="web_import_storage_error">無法儲存，請檢查遊戲資料夾權限後重試。</string>
+    <string name="web_import_space_error">空間不足，請清理後重試。</string>
+    <string name="web_import_failed">匯入失敗，請重試。</string>
     <string name="web_import_cover">遊戲封面</string>
     <string name="web_import_already_queued">此遊戲已在下載列表中。</string>
     <string name="web_import_checking_local">正在檢查本機遊戲…</string>
@@ -35,7 +32,13 @@
     <string name="web_import_resume">繼續</string>
     <string name="web_import_transfer">%1$d%% · %2$s / %3$s · %4$s/秒</string>
     <string name="web_import_download_channel">遊戲下載</string>
-    <string name="web_import_background_failed">無法啟動下載，請點擊繼續重試。</string>
+    <string name="web_import_background_failed">無法啟動下載，請重試。</string>
     <string name="web_import_remove">移除下載</string>
     <string name="web_import_removing">正在移除下載…</string>
+    <string name="web_import_file_size">檔案大小：%1$s</string>
+    <string name="web_import_staging">預發佈站</string>
+    <string name="web_import_choose_folder">選擇資料夾</string>
+    <string name="web_import_choose_folder_prompt">請先選擇遊戲資料夾。</string>
+    <string name="web_import_preparing">正在準備遊戲…</string>
+    <string name="web_import_transfer_paused">%1$d%% · %2$s / %3$s</string>
 </resources>

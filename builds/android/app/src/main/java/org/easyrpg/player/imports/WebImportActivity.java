@@ -29,7 +29,7 @@ import org.easyrpg.player.settings.SettingsManager;
 public class WebImportActivity extends BaseActivity {
     private WebImportViewModel model;
     private Button action, cancel;
-    private TextView details, status;
+    private TextView gameTitle, fileSize, site, status;
     private ProgressBar progress;
     private ImageView cover;
     private boolean openingDownloads;
@@ -39,7 +39,9 @@ public class WebImportActivity extends BaseActivity {
         openingDownloads = savedInstanceState != null && savedInstanceState.getBoolean("openingDownloads");
         setContentView(R.layout.activity_web_import);
         cover = findViewById(R.id.import_cover);
-        details = findViewById(R.id.import_details);
+        gameTitle = findViewById(R.id.import_game_title);
+        fileSize = findViewById(R.id.import_file_size);
+        site = findViewById(R.id.import_site);
         status = findViewById(R.id.import_status);
         action = findViewById(R.id.import_action);
         cancel = findViewById(R.id.import_cancel);
@@ -83,28 +85,49 @@ public class WebImportActivity extends BaseActivity {
                 requestPermissions(new String[] {Manifest.permission.POST_NOTIFICATIONS}, 41);
             } else openDownloads();
         }
+        boolean hasMetadata = state.metadata != null;
+        boolean exists = state.stage == Stage.EXISTS;
         if (state.metadata != null) {
-            details.setText(getString(R.string.web_import_details, state.metadata.title,
-                    Long.toString(state.metadata.archiveVersionId),
-                    Formatter.formatFileSize(this, state.metadata.zipSize),
-                    state.metadata.download.getHost(), state.metadata.fileName));
-        } else details.setText(R.string.web_import_intro);
+            gameTitle.setText(state.metadata.title);
+            fileSize.setText(getString(R.string.web_import_file_size,
+                    Formatter.formatFileSize(this, state.metadata.zipSize)));
+        }
+        gameTitle.setVisibility(hasMetadata ? View.VISIBLE : View.GONE);
+        fileSize.setVisibility(hasMetadata && !exists ? View.VISIBLE : View.GONE);
+        site.setVisibility(hasMetadata && !exists && "staging.viprpg.org".equals(state.metadata.download.getHost())
+                ? View.VISIBLE : View.GONE);
         cover.setImageBitmap(state.cover);
         if (state.cover == null) cover.setImageResource(R.drawable.ic_gamepad_black);
-        cover.setVisibility(state.metadata == null ? View.GONE : View.VISIBLE);
-        status.setText(state.message);
+        cover.setScaleType(state.cover == null ? ImageView.ScaleType.CENTER : ImageView.ScaleType.FIT_CENTER);
+        android.view.ViewGroup.LayoutParams coverLayout = cover.getLayoutParams();
+        int coverHeight = Math.round((state.cover == null ? 64 : 160) * getResources().getDisplayMetrics().density);
+        if (coverLayout.height != coverHeight) {
+            coverLayout.height = coverHeight;
+            cover.setLayoutParams(coverLayout);
+        }
+        cover.setVisibility(hasMetadata ? View.VISIBLE : View.GONE);
+        status.setVisibility(state.message == 0 ? View.GONE : View.VISIBLE);
+        if (state.message != 0) status.setText(state.message);
         progress.setVisibility(state.busy() ? View.VISIBLE : View.GONE);
         progress.setIndeterminate(true);
         action.setVisibility(state.busy() || state.stage == Stage.EXISTS ? View.GONE : View.VISIBLE);
-        action.setText(state.stage == Stage.READY ? R.string.web_import_start : R.string.web_import_retry);
+        action.setText(needsFolder(state) ? R.string.web_import_choose_folder :
+                state.stage == Stage.READY ? R.string.web_import_start : R.string.web_import_retry);
         cancel.setEnabled(true);
         cancel.setText(R.string.web_import_close);
+    }
+
+    private boolean needsFolder(WebImportViewModel.State state) {
+        return state.stage == Stage.NEEDS_FOLDER ||
+                (state.stage == Stage.ERROR && state.message == R.string.web_import_storage_error);
     }
 
     private void act() {
         WebImportViewModel.State state = model.state.getValue();
         if (state == null || state.busy()) return;
-        if (state.stage == Stage.READY) {
+        if (needsFolder(state)) {
+            GameBrowserHelper.pickAGamesFolder(this);
+        } else if (state.stage == Stage.READY) {
             DocumentFile games = gamesFolder();
             if (games == null || !games.canRead() || !games.canWrite()) {
                 GameBrowserHelper.pickAGamesFolder(this);
@@ -146,7 +169,7 @@ public class WebImportActivity extends BaseActivity {
                 GameBrowserHelper.showErrorMessage(this, error);
             }
         } catch (RuntimeException e) {
-            status.setText(R.string.web_import_storage_error);
+            model.storageError(e);
         }
     }
 
