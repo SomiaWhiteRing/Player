@@ -2,9 +2,9 @@
 #define EP_WEB_UI_H
 
 #include "baseui.h"
-#include "audio_generic.h"
+#include "platform/emscripten/audio.h"
 
-// The browser owns the window; the engine, file reads and mixer share one Worker.
+// The browser owns the window; mixing runs independently in the audio Worker.
 class WebUi final : public BaseUi {
 public:
 	WebUi(int width, int height, const Game_Config& cfg);
@@ -23,12 +23,6 @@ public:
 		analog_input.trigger_left = lt; analog_input.trigger_right = rt;
 	}
 private:
-	class WebAudio final : public GenericAudio {
-	public:
-		explicit WebAudio(const Game_ConfigAudio& cfg);
-		// All engine and decoder callbacks execute on the same Worker.
-		void LockMutex() const override {}
-		void UnlockMutex() const override {}
-	} audio;
+	WebAudio audio;
 };
 #endif

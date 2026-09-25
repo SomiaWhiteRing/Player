@@ -634,7 +634,8 @@ if(APPLE AND NOT IOS AND NOT CMAKE_SYSTEM_NAME STREQUAL "tvOS")
 endif()
 
 if(PLAYER_TARGET_PLATFORM STREQUAL "Web")
-	target_sources(${PROJECT_NAME} PRIVATE src/platform/emscripten/ui.cpp src/platform/emscripten/ui.h)
+	target_sources(${PROJECT_NAME} PRIVATE src/platform/emscripten/ui.cpp src/platform/emscripten/ui.h
+		src/platform/emscripten/audio.cpp src/platform/emscripten/audio.h)
 	target_compile_definitions(${PROJECT_NAME} PUBLIC PLAYER_WEB=1)
 elseif(PLAYER_TARGET_PLATFORM STREQUAL "SDL3")
 	target_sources(${PROJECT_NAME} PRIVATE
@@ -1292,7 +1293,8 @@ if(PLAYER_BUILD_EXECUTABLE AND (PLAYER_TARGET_PLATFORM MATCHES "^SDL.*$" OR PLAY
 				src/platform/emscripten/movie_player_web.h)
 
 		target_link_libraries(${EXE_NAME} "idbfs.js" "workerfs.js")
-		foreach(web_file player-host.js player-worker.js player-audio.js)
+		include(builds/cmake/Modules/PlayerWebMovie.cmake)
+		foreach(web_file player-host.js player-worker.js player-audio.js player-audio-worker.js player-files.js player-movie.js player-movie-worker.js)
 			configure_file(resources/emscripten/${web_file} ${CMAKE_CURRENT_BINARY_DIR}/${web_file} COPYONLY)
 		endforeach()
 
@@ -1326,6 +1328,13 @@ if(PLAYER_BUILD_EXECUTABLE AND (PLAYER_TARGET_PLATFORM MATCHES "^SDL.*$" OR PLAY
 			${CMAKE_CURRENT_BINARY_DIR}/player-host.js
 			${CMAKE_CURRENT_BINARY_DIR}/player-worker.js
 			${CMAKE_CURRENT_BINARY_DIR}/player-audio.js
+			${CMAKE_CURRENT_BINARY_DIR}/player-audio-worker.js
+			${CMAKE_CURRENT_BINARY_DIR}/player-files.js
+			${CMAKE_CURRENT_BINARY_DIR}/player-movie.js
+			${CMAKE_CURRENT_BINARY_DIR}/player-movie-worker.js
+			${CMAKE_CURRENT_BINARY_DIR}/movie-decoder.js
+			${CMAKE_CURRENT_BINARY_DIR}/movie-decoder.wasm
+			${CMAKE_CURRENT_BINARY_DIR}/movie-decoder.LICENSE.txt
 			DESTINATION ${CMAKE_INSTALL_BINDIR})
 	endif()
 elseif(PLAYER_CONSOLE_PORT AND NOT PLAYER_TARGET_PLATFORM STREQUAL "libretro")

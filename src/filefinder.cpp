@@ -57,7 +57,7 @@
 namespace {
 #ifdef SUPPORT_MOVIES
 #  ifdef HAVE_WEB_MOVIE_PLAYER
-	constexpr std::array<std::string_view, 5> MOVIE_TYPES = { ".avi", ".mpg", ".mp4", ".webm", ".ogv" };
+	constexpr std::array<std::string_view, 7> MOVIE_TYPES = { ".avi", ".mpg", ".mpeg", ".mp4", ".webm", ".ogv", ".mov" };
 #  else
 	constexpr std::array<std::string_view, 2> MOVIE_TYPES = { ".avi", ".mpg" };
 #  endif

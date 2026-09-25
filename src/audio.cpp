@@ -22,8 +22,14 @@
 #include "baseui.h"
 #include "player.h"
 #include "game_clock.h"
+#ifdef EMSCRIPTEN
+#include "platform/emscripten/audio.h"
+#endif
 
 AudioInterface& Audio() {
+#ifdef EMSCRIPTEN
+	if (auto* mixer = WebAudio::Mixer()) return *mixer;
+#endif
 	static Game_ConfigAudio cfg;
 	static EmptyAudio default_(cfg);
 #ifdef SUPPORT_AUDIO

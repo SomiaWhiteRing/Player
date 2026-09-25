@@ -24,6 +24,9 @@
 #include "decoder_wildmidi.h"
 #include "output.h"
 #include "recommended_soundfont.h"
+#ifdef EMSCRIPTEN
+#include "platform/emscripten/audio.h"
+#endif
 
 #ifdef USE_AUDIO_RESAMPLER
 #include "audio_resampler.h"
@@ -139,6 +142,9 @@ std::unique_ptr<AudioDecoderBase> MidiDecoder::CreateFmMidi(bool resample) {
 }
 
 bool MidiDecoder::CheckFluidsynth(std::string& status_message) {
+#ifdef EMSCRIPTEN
+	if (WebAudio::IsProxy()) return WebAudio::CheckFluidsynth(status_message);
+#endif
 	if (works.fluidsynth && works.fluidsynth_status.empty()) {
 		CreateFluidsynth(true);
 	}
@@ -148,6 +154,10 @@ bool MidiDecoder::CheckFluidsynth(std::string& status_message) {
 }
 
 void MidiDecoder::ChangeFluidsynthSoundfont(std::string_view sf_path) {
+#ifdef EMSCRIPTEN
+	// In the game instance settings are forwarded to the audio instance.
+	if (WebAudio::IsProxy()) { Audio().Update(); return; }
+#endif
 	const auto recommended_soundfont = RecommendedSoundFont::GetPath();
 	if (!recommended_soundfont.empty()) {
 		sf_path = std::string_view(recommended_soundfont.data(), recommended_soundfont.size());

@@ -6,10 +6,6 @@
 #include <emscripten.h>
 #include <sstream>
 
-WebUi::WebAudio::WebAudio(const Game_ConfigAudio& cfg) : GenericAudio(cfg) {
-	SetFormat(EM_ASM_INT({ return Module.sampleRate; }), AudioDecoder::Format::S16, 2);
-}
-
 WebUi::WebUi(int width, int height, const Game_Config& cfg) : BaseUi(cfg), audio(cfg.audio) {
 	Bitmap::SetFormat(DynamicFormat(32, 8, 16, 8, 8, 8, 0, 8, 24, PF::Alpha));
 	vChangeDisplaySurfaceResolution(width, height);
@@ -98,11 +94,6 @@ EMSCRIPTEN_KEEPALIVE void web_focus(int focused, int fullscreen) {
 		if (focused) Player::Resume();
 		else Player::Pause();
 	}
-}
-
-EMSCRIPTEN_KEEPALIVE void web_audio(uint8_t* buffer, int frames) {
-	if (DisplayUi && frames > 0 && frames <= 4096)
-		static_cast<GenericAudio&>(DisplayUi->GetAudio()).Decode(buffer, frames * 4);
 }
 
 EMSCRIPTEN_KEEPALIVE void web_capture() {

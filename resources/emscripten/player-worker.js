@@ -1,7 +1,7 @@
 /* global createEasyRpgEngine */
 let engine;
-let audioPointer = 0;
 let firstFrame = true;
+let forwardedSoundfont = '';
 
 function report(error) {
   postMessage({type: 'error', message: error?.stack || String(error)});
@@ -70,10 +70,30 @@ self.onmessage = async ({data}) => {
     if (data.type === 'start') {
       if (engine) throw new Error('Player already started');
       const present = createRenderer(data.canvas);
-      importScripts(new URL('easyrpg-player.js', data.runtimeBase).href);
+      importScripts(new URL('player-files.js', data.runtimeBase).href,
+        new URL('easyrpg-player.js', data.runtimeBase).href);
+      let generation = 0;
+      const audioPort = data.audioPort;
+      audioPort.onmessage = ({data: state}) => {
+        if (engine && state.generation === generation) engine.audioState = state;
+      };
       engine = await createEasyRpgEngine({
         canvas: data.canvas, workId: data.workId, sampleRate: data.sampleRate,
+        audioCapabilities: data.audioCapabilities,
         gamePackages: data.packages, gameArguments: data.arguments, keyNames: {},
+        audioCommand: command => {
+          if (command.op === 'config' && command.soundfont?.startsWith('/') && engine && command.soundfont !== forwardedSoundfont) {
+            try {
+              command.file = {path: command.soundfont, bytes: engine.FS.readFile(command.soundfont)};
+              forwardedSoundfont = command.soundfont;
+            } catch (error) { console.warn(`Soundfont could not be forwarded: ${error}`); }
+          }
+          if (command.op === 'bgm' || command.op === 'stop') {
+            generation++;
+            if (engine) engine.audioState = {playing: command.op === 'bgm', playedOnce: false, ticks: 0};
+          }
+          audioPort.postMessage({...command, generation}, command.file ? [command.file.bytes.buffer] : []);
+        },
         locateFile: path => new URL(path, data.runtimeBase).href,
         present,
         print: (...values) => postMessage({type: 'log', level: 'info', message: values.join(' ')}),
@@ -81,7 +101,6 @@ self.onmessage = async ({data}) => {
         onAbort: message => report(new Error(message)),
       });
       engine.initApi();
-      audioPointer = engine._malloc(1024 * 4);
     } else if (engine) {
       if (data.type === 'key') engine._web_key(data.key, data.pressed ? 1 : 0);
       else if (data.type === 'mouse') engine._web_mouse(data.x, data.y, data.focus ? 1 : 0);
@@ -89,18 +108,15 @@ self.onmessage = async ({data}) => {
       else if (data.type === 'gamepad') engine._web_gamepad(...data.axes, ...data.triggers);
       else if (data.type === 'focus') {
         engine._web_focus(data.focused ? 1 : 0, data.fullscreen ? 1 : 0);
-      } else if (data.type === 'audio') {
-        engine.HEAPU8.fill(0, audioPointer, audioPointer + 4096);
-        engine._web_audio(audioPointer, 1024);
-        const pcm = engine.HEAP16.slice(audioPointer / 2, audioPointer / 2 + 2048);
-        postMessage({type: 'audio', pcm}, [pcm.buffer]);
       } else if (data.type === 'capture') engine._web_capture();
       else if (data.type === 'stop') {
         engine.stopping = true;
         if (engine.stopped) engine.syncSaves().then(() => postMessage({type: 'stopped'})).catch(() => {});
         else engine._web_stop();
       }
-      else if (data.type === 'movie-state') Object.assign(engine.webMovie, data.state);
+      else if (data.type === 'movie-state') {
+        if (engine.webMovie?.id === data.id) Object.assign(engine.webMovie, data.state);
+      }
       else if (data.type === 'upload') {
         // A file picker can finish after exit, including while a save flush is being retried.
         if (engine.stopping || engine.stopped) return;
@@ -109,7 +125,10 @@ self.onmessage = async ({data}) => {
         try {
           engine.HEAPU8.set(bytes, pointer);
           if (data.kind === 'save') engine.api_private.uploadSavegameStep2(data.slot, pointer, bytes.length);
-          else if (data.kind === 'soundfont') engine.api_private.uploadSoundfontStep2(data.name, pointer, bytes.length);
+          else if (data.kind === 'soundfont') {
+            engine.api_private.uploadSoundfontStep2(data.name, pointer, bytes.length);
+            forwardedSoundfont = '';
+          }
           else if (data.kind === 'font') engine.api_private.uploadFontStep2(data.name, pointer, bytes.length);
           engine.api.refreshScene();
         } finally { engine._free(pointer); }

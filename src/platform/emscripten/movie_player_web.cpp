@@ -27,8 +27,9 @@ EM_JS(int, EasyRpgWebMovieOpen, (const char* path), {
   // WORKERFS stores each resource as a Blob slice; keep videos out of WASM memory.
   const node = FS.lookupPath(filePath).node;
   if (!(node.contents instanceof Blob)) throw new Error('Movie is not a local Blob');
-  Module.webMovie = {playing: true, error: "", width: 0, height: 0};
-  postMessage({type: 'movie-open', blob: node.contents, path: filePath});
+  const id = Module.webMovieSequence = (Module.webMovieSequence || 0) + 1;
+  Module.webMovie = {id, playing: true, error: "", width: 0, height: 0};
+  postMessage({type: 'movie-open', id, blob: node.contents, path: filePath});
   return 1;
  } catch (error) {
   Module.webMovie = {playing: false, error: String(error)};
@@ -36,10 +37,10 @@ EM_JS(int, EasyRpgWebMovieOpen, (const char* path), {
  }
 });
 EM_JS(void, EasyRpgWebMovieUpdate, (int x, int y, int width, int height), {
- postMessage({type: 'movie-rect', x, y, width, height});
+ postMessage({type: 'movie-rect', id: Module.webMovie?.id, x, y, width, height});
 });
 EM_JS(void, EasyRpgWebMovieStop, (), {
- postMessage({type: 'movie-stop'});
+ postMessage({type: 'movie-stop', id: Module.webMovie?.id});
  Module.webMovie = {playing: false, error: ""};
 });
 EM_JS(int, EasyRpgWebMovieIsPlaying, (), { return Module.webMovie?.playing ? 1 : 0; });

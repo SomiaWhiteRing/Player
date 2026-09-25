@@ -10,10 +10,14 @@ window.createEasyRpgPlayer = async function createEasyRpgPlayer(options) {
   const page = window.parent;
   const context = new AudioContext({latencyHint: 'interactive'});
   const worker = new Worker(new URL('player-worker.js', base));
+  const audioWorker = new Worker(new URL('player-audio-worker.js', base));
+  let audioReadyResolve, audioReadyReject;
+  const audioReady = new Promise((resolve, reject) => { audioReadyResolve = resolve; audioReadyReject = reject; });
+  void audioReady.catch(() => {});
   let node, keys = {}, width = 320, height = 240, gamepadFrame = 0;
   let readyResolve, readyReject, stoppedResolve, stoppedReject, screenshot;
-  let closed = false, started = false, stopPromise;
-  let video, movieUrl;
+  let closed = false, started = false, stopping = false, stopPromise;
+  let movie, movieId, movieRect, movieLoadTimer;
   const ready = new Promise((resolve, reject) => { readyResolve = resolve; readyReject = reject; });
   // Cancellation can arrive while the audio module is still being fetched.
   void ready.catch(() => {});
@@ -22,6 +26,7 @@ window.createEasyRpgPlayer = async function createEasyRpgPlayer(options) {
     console.error(message);
     const error = new Error(message);
     readyReject(error); stoppedReject?.(error); screenshot?.reject(error);
+    audioReadyReject(error);
     screenshot = undefined;
     options.onError?.(error);
   };
@@ -36,8 +41,37 @@ window.createEasyRpgPlayer = async function createEasyRpgPlayer(options) {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   const stopMovie = () => {
-    if (video) { video.pause(); video.removeAttribute('src'); video.load(); video.remove(); video = undefined; }
-    if (movieUrl) { URL.revokeObjectURL(movieUrl); movieUrl = undefined; }
+    clearTimeout(movieLoadTimer);
+    movieId = undefined;
+    movie?.stop();
+    movie = undefined;
+    movieRect = undefined;
+  };
+  const openMovie = async data => {
+    if (closed || stopping) return;
+    stopMovie();
+    movieId = data.id;
+    const state = state => {
+      if (!closed && movieId === data.id) send({type: 'movie-state', id: data.id, state});
+    };
+    movieLoadTimer = setTimeout(() => {
+      if (movieId !== data.id) return;
+      state({playing: false, error: 'Movie playback module load timed out'});
+      stopMovie();
+    }, 60000);
+    try {
+      const {MoviePlayback} = await import(new URL('player-movie.js', base).href);
+      if (closed || stopping || movieId !== data.id) return;
+      clearTimeout(movieLoadTimer);
+      movie = new MoviePlayback({canvas, context, base, state});
+      movie.start(data.blob, data.path);
+      if (movieRect) movie.updateRect(movieRect);
+    } catch (error) {
+      if (movieId !== data.id) return;
+      console.error(`Movie playback failed: ${data.path}: ${error}`);
+      state({playing: false, error: String(error)});
+      stopMovie();
+    }
   };
   worker.onmessage = ({data}) => {
     if (data.type === 'ready') {
@@ -46,7 +80,6 @@ window.createEasyRpgPlayer = async function createEasyRpgPlayer(options) {
       node.port.postMessage({type: 'start'});
       readyResolve();
     } else if (data.type === 'size') { width = data.width; height = data.height; }
-    else if (data.type === 'audio') node.port.postMessage(data, [data.pcm.buffer]);
     else if (data.type === 'log') (console[data.level] || console.log)(data.message);
     else if (data.type === 'error') report(data.message);
     else if (data.type === 'save-error') {
@@ -55,6 +88,8 @@ window.createEasyRpgPlayer = async function createEasyRpgPlayer(options) {
       options.onError?.(new Error(data.message));
     }
     else if (data.type === 'stopped') {
+      stopping = true;
+      stopMovie();
       if (stoppedResolve) stoppedResolve();
       else if (started) options.onExit?.();
       else readyReject(new Error('播放器在游戏启动前退出，请检查运行日志。'));
@@ -80,32 +115,19 @@ window.createEasyRpgPlayer = async function createEasyRpgPlayer(options) {
         if (url.protocol === 'https:' || url.protocol === 'http:') window.open(url.href, '_blank', 'noopener,noreferrer');
       } catch { /* Invalid game-supplied URL. */ }
     } else if (data.type === 'movie-open') {
-      stopMovie();
-      video = document.createElement('video');
-      video.playsInline = true;
-      Object.assign(video.style, {position: 'absolute', pointerEvents: 'none', background: 'black', zIndex: '1'});
-      canvas.parentNode.appendChild(video);
-      const currentVideo = video;
-      const state = error => {
-        if (video !== currentVideo) return;
-        send({type: 'movie-state', state: {
-          playing: !error && !currentVideo.ended, error: error || '', width: currentVideo.videoWidth, height: currentVideo.videoHeight,
-        }});
-      };
-      video.onloadedmetadata = () => state('');
-      video.onended = () => { state(''); currentVideo.style.display = 'none'; };
-      video.onerror = () => state(`Video error ${currentVideo.error?.code}`);
-      movieUrl = URL.createObjectURL(data.blob);
-      video.src = movieUrl;
-      video.play().catch(error => state(String(error)));
-    } else if (data.type === 'movie-stop') stopMovie();
-    else if (data.type === 'movie-rect' && video) {
-      const rect = canvas.getBoundingClientRect(), parent = canvas.parentNode.getBoundingClientRect();
-      Object.assign(video.style, {left: `${rect.left-parent.left+data.x*rect.width/width}px`,
-        top: `${rect.top-parent.top+data.y*rect.height/height}px`,
-        width: `${data.width*rect.width/width}px`, height: `${data.height*rect.height/height}px`});
+      void openMovie(data);
+    } else if (data.type === 'movie-stop' && data.id === movieId) stopMovie();
+    else if (data.type === 'movie-rect' && data.id === movieId) {
+      movieRect = {...data, screenWidth: width, screenHeight: height};
+      movie?.updateRect(movieRect);
     }
   };
+  audioWorker.onmessage = ({data}) => {
+    if (data.type === 'ready') audioReadyResolve(data.capabilities);
+    else if (data.type === 'log') (console[data.level] || console.log)(data.message);
+    else if (data.type === 'error') report(data.message);
+  };
+  audioWorker.onerror = event => report(event.message || '音频组件启动失败');
   worker.onerror = event => report(event.message);
   worker.onmessageerror = () => report('播放器消息无法读取。');
 
@@ -191,17 +213,25 @@ window.createEasyRpgPlayer = async function createEasyRpgPlayer(options) {
   const shutdown = async () => {
     closed = true; controller.abort(); cancelAnimationFrame(gamepadFrame); stopMovie(); node?.disconnect();
     screenshot?.reject(new Error('游戏已停止。')); screenshot = undefined;
-    try { await context.close(); } finally { worker.terminate(); }
+    try { await context.close(); } finally { worker.terminate(); audioWorker.terminate(); }
   };
   try {
     // Cancel/timeout must also end startup while the audio module is loading.
     await Promise.race([context.audioWorklet.addModule(new URL('player-audio.js', base)), ready]);
     node = new AudioWorkletNode(context, 'easyrpg-audio', {numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2]});
-    node.port.onmessage = () => send({type: 'audio'});
+    const audioChannel = new MessageChannel();
+    const controlChannel = new MessageChannel();
+    node.port.postMessage({type: 'connect', port: audioChannel.port1}, [audioChannel.port1]);
     node.connect(context.destination);
+    audioWorker.postMessage({type: 'start', runtimeBase: base, packages: options.packages,
+      workId: options.workId, sampleRate: context.sampleRate,
+      audioPort: audioChannel.port2, controlPort: controlChannel.port1},
+      [audioChannel.port2, controlChannel.port1]);
+    const audioCapabilities = await Promise.race([audioReady, ready]);
     const offscreen = canvas.transferControlToOffscreen();
     worker.postMessage({type: 'start', canvas: offscreen, runtimeBase: base, packages: options.packages,
-      workId: options.workId, sampleRate: context.sampleRate, arguments: options.arguments || []}, [offscreen]);
+      workId: options.workId, sampleRate: context.sampleRate, arguments: options.arguments || [],
+      audioPort: controlChannel.port2, audioCapabilities}, [offscreen, controlChannel.port2]);
     await ready;
     focus();
     gamepadFrame = requestAnimationFrame(pollGamepad);
@@ -221,6 +251,8 @@ window.createEasyRpgPlayer = async function createEasyRpgPlayer(options) {
     },
     stop() {
       return stopPromise ||= (async () => {
+        stopping = true;
+        stopMovie();
         const stopped = new Promise((resolve, reject) => { stoppedResolve = resolve; stoppedReject = reject; });
         send({type: 'stop'});
         const timeout = setTimeout(() => stoppedReject(new Error('等待存档写入超时。')), 15000);

@@ -35,7 +35,7 @@ EasyRPG Player 的苍旻白轮个人魔改造版。基于 EasyRPG Player 0.8.1.1
 
 Web 版默认启用 `ExtraRecommendedSoundFont`，使用 `resources/soundfonts/recommended.sf2`。自动构建将它打包到 `easyrpg-player.data`，启动时预加载为虚拟文件 `/builtin/recommended.sf2`；无需给每个游戏重复添加音色库。
 
-本分支的 Web ZIP 专供 VIPRPG-ZH-Archive 使用。站点通过 `player-host.js` 的 `createEasyRpgPlayer({ runtimeBase, workId, packages })` 启动专用 Worker，将已经安装的 OPFS pack 挂载为 WORKERFS。完整部署须包含 `player-host.js`、`player-worker.js`、`player-audio.js`、`easyrpg-player.js`、`easyrpg-player.wasm` 和 `easyrpg-player.data`。引擎在 Worker 内同步读取本地资源，使用 OffscreenCanvas/WebGL2 和 AudioWorklet；不需要 SharedArrayBuffer 或跨源隔离。销毁播放文档前必须等待返回对象的 `stop()` 完成，以确认 IDBFS 存档已经写入。
+本分支的 Web ZIP 专供 VIPRPG-ZH-Archive 使用。站点通过 `player-host.js` 的 `createEasyRpgPlayer({ runtimeBase, workId, packages })` 启动游戏和音频两个 Worker，将已经安装的 OPFS pack 挂载为 WORKERFS。文件读取使用有容量上限的内存缓存；游戏 Worker 输出 OffscreenCanvas/WebGL2，音频 Worker 复用原生解码器与混音器并直接供给 AudioWorklet，游戏帧阻塞不会停止持续供音（见[音频架构](docs/web-audio.md)）。部署时须完整保留 ZIP 中的 JS、WASM、data 和许可文件，包括按需加载的视频模块（见[视频部署说明](docs/web-movies.md)）。不需要 SharedArrayBuffer 或跨源隔离。销毁播放文档前必须等待返回对象的 `stop()` 完成，以确认 IDBFS 存档已经写入并结束两个 Worker。
 
 初始化脚本保留 Emscripten 音色库预加载回调，等待资源挂载后才启动播放器。浏览器已保存的设置仍然有效：若之前关闭过额外功能中的「MIDI音效改良」或音频设置中的 FluidSynth，请在 `F1` 设置中重新启用；首次使用默认开启。
 
@@ -63,6 +63,8 @@ Web 版默认启用 `ExtraRecommendedSoundFont`，使用 `resources/soundfonts/r
 兼容RPG Maker事件中的播放视频功能。  
 会从游戏目录下的`Movie`文件夹查找`.avi`和`.mpg`文件，并在游戏窗口内播放。  
 视频播放结束后会继续执行后续事件。
+
+Web 版优先使用浏览器原生视频播放，失败时按需加载精简的 FFmpeg/WASM 解码器，支持 AVI 中的 DivX/Xvid、Microsoft Video 1、Cinepak、Indeo 3、Motion JPEG，以及 MPEG-1/2 等旧格式。解码器不包含编码器或转码流程，在独立 Worker 中逐帧解码，直接读取本地 Blob 切片；无需修改原游戏资源。Web 还会查找 `.mpeg`、`.mp4`、`.webm`、`.ogv` 和 `.mov`。具体范围、内存限制和构建方法见[Web 视频说明](docs/web-movies.md)。Android 尚未实现对应的视频播放后端。
 
 ### 输入式解谜自动选项化
 

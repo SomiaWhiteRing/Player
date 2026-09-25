@@ -6,7 +6,10 @@ Module.preRun = [].concat(Module.preRun || [], () => {
     throw new Error('Invalid workId');
   FS.mkdir('/game');
   FS.mount(WORKERFS, {packages: Module.gamePackages}, '/game');
+  Module.fileCache = self.installPlayerFileCache(FS);
   FS.chdir('/game');
+  // The audio instance has no game loop or persistent state of its own.
+  if (Module.audioOnly) return;
   FS.mkdir('/work-saves');
   const savePath = `/work-saves/${Module.workId}`;
   FS.mkdir(savePath);
