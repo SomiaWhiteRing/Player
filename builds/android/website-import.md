@@ -10,10 +10,10 @@ easyrpg-kai://import?manifest=<URL 编码的 HTTPS 清单地址>
 
 清单固定为 `/api/archive-versions/{id}/kai-import`，当前信任域名：
 
-- `https://viprpg-zh-archive.q578235562.workers.dev`
+- `https://viprpg.org`
 - `https://staging.viprpg.org`
 
-客户端拒绝其他来源、非 HTTPS、重定向、用户信息及非默认端口。独立预生产域名需要安装已更新来源白名单的新版 APK，旧版会拒绝导入。更换站点域名时，需要同步修改网站按钮和 Android 白名单并发版。
+客户端拒绝其他来源、非 HTTPS、重定向、用户信息及非默认端口。正式域名和独立预生产域名均需要安装包含对应来源白名单的新版 APK；仍只信任旧 Workers.dev 的历史 APK 会拒绝正式站导入。旧 Workers.dev 入口已停止使用。更换站点域名时，需要同步修改网站按钮和 Android 白名单并发版。
 
 清单格式：
 
@@ -22,11 +22,11 @@ easyrpg-kai://import?manifest=<URL 编码的 HTTPS 清单地址>
   "schema": "viprpg-kai.import.v1",
   "archiveVersionId": 123,
   "workId": 456,
-  "coverUrl": "https://viprpg-zh-archive.q578235562.workers.dev/api/media/blobs/<封面 SHA-256>",
+  "coverUrl": "https://viprpg.org/api/media/blobs/<封面 SHA-256>",
   "title": "游戏名称",
   "engineFamily": "rpg_maker_2003",
   "manifestSha256": "64 位小写十六进制哈希",
-  "downloadUrl": "https://viprpg-zh-archive.q578235562.workers.dev/api/archive-versions/123/download?zip_builder=zip-store-v7-local-crc-no-descriptor",
+  "downloadUrl": "https://viprpg.org/api/archive-versions/123/download?zip_builder=zip-store-v7-local-crc-no-descriptor",
   "zipSizeBytes": 123456,
   "files": [{ "path": "RPG_RT.ldb", "size": 1234, "sha256": "64 位小写十六进制哈希" }]
 }
