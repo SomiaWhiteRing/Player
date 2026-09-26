@@ -6,6 +6,8 @@
 *.py      text
 *.rb      text
 *.sh      text eol=lf
+builds/ci/package-ubuntu-nightly.cache.env text eol=lf
+builds/docker/package.Dockerfile text eol=lf
 *.ac      text
 *.am      text
 

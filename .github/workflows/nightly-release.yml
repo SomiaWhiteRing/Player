@@ -21,7 +21,7 @@ env:
   TRACKED_BRANCH: my-feature-stable
   WINDOWS_ASSET_NAME: Player.exe
   WEB_ASSET_NAME: EasyRPG-Player-Kai-nightly-web.zip
-  ANDROID_ASSET_NAME: EasyRPG-Player-Kai-nightly-android-debug.apk
+  ANDROID_ASSET_NAME: EasyRPG-Player-Kai-nightly-android.apk
 
 jobs:
   windows:
@@ -143,6 +143,11 @@ jobs:
             easyrpg-local-docker-android-${{ runner.os }}-
 
       - name: Package Android nightly artifact
+        env:
+          ANDROID_RELEASE_KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          ANDROID_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+          ANDROID_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
         run: |
           ./builds/package-docker.ps1 android
 

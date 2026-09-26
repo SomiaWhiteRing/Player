@@ -99,7 +99,9 @@ Web 版优先使用浏览器原生视频播放，失败时按需加载精简的 
 
 每个 Release 附带 `release-manifest.json`，记录提交 SHA、工作流运行、版本、文件大小和 SHA-256，发布日志也包含这些校验值。Nightly 覆盖不会保留旧包，复现问题时请同时记录版本号与提交 SHA；历史构建另受 GitHub Actions 产物保留期限制。单个附件上传限时 5 分钟、最多尝试 3 次，发布任务总限时 30 分钟；仍失败时工作流会失败，可在分支仍指向该提交时重跑失败任务；正式版草稿只允许在标签仍指向同一提交时继续上传，已发布正式版不覆盖。GitHub 对 Nightly 的多个附件替换不提供原子操作。
 
-这里的年月版本表示 Kai 分发版本；EasyRPG 上游基础版本以及 Android 的递增 versionCode、现有 debug 签名仍由各自构建配置管理。
+这里的年月版本表示 Kai 分发版本；EasyRPG 上游基础版本以及 Android 的递增 versionCode 仍由各自构建配置管理。Android 自动发版使用 Release 构建和独立的正式签名，配置方法见 [Android 发布签名](builds/android/release-signing.md)。
+
+Android 从旧 Debug 签名切换到正式签名后，首次安装不能覆盖旧版。请先备份存档及需要保留的数据，再卸载旧版并安装新版；此后的正式签名版本可继续覆盖更新。
 
 ## 本地打包
 
@@ -121,12 +123,12 @@ Web 版优先使用浏览器原生视频播放，失败时按需加载精简的 
 默认输出到 `build/artifacts/`：
 
 - `EasyRPG-Player-Kai-nightly-web.zip`
-- `EasyRPG-Player-Kai-nightly-android-debug.apk`
+- `EasyRPG-Player-Kai-nightly-android.apk`
 
 Web ZIP 由 VIPRPG-ZH-Archive 的运行时导入脚本接入网站。网站负责将游戏安装到 OPFS，并把 pack 与文件切片索引交给 `createEasyRpgPlayer`；不再提供独立的 `games/default/` 页面或 `indexgen.php`。
 
 Windows x64 的 `Player.exe` 由 GitHub Workflow 的 `windows-2022` job 调用 `builds/ci/package-windows-nightly.ps1` 生成；它依赖 Visual Studio 2022 runner 和 `x64-windows-static` vcpkg 工具链，不在本地 Linux Docker 容器里另建一套交叉编译流程。标准分发产物以 Nightly Action 上传的 `Player.exe` 为准。
 
-Nightly Action 上传的是 debug-signed APK，方便直接安装测试；正式 release 签名需要另行配置 keystore。
+Android 本地打包和 CI 均需要四个 `ANDROID_RELEASE_*` 签名环境变量，见 [Android 发布签名](builds/android/release-signing.md)。缺少签名配置时构建会直接报错。普通开发仍可在 `builds/android` 中使用 `assembleDebug`。
 
 Android APK 保留 armeabi-v7a、arm64-v8a、x86 和 x86_64 四种架构，使用压缩的原生库将下载体积控制在 100 MB 以下；构建步骤会检查压缩方式与包大小。Android 安装时会解压原生库，因此下载体积减小不代表安装后占用按同比例减小。

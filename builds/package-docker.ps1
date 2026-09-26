@@ -16,6 +16,20 @@ $dockerContext = Join-Path (Join-Path $repoRoot "builds") "docker"
 $dockerfile = Join-Path $dockerContext "package.Dockerfile"
 $cacheRoot = Join-Path (Join-Path $repoRoot "external") "local-docker"
 $isWindowsHost = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
+$androidSigningEnv = @(
+	"ANDROID_RELEASE_KEYSTORE_BASE64",
+	"ANDROID_RELEASE_STORE_PASSWORD",
+	"ANDROID_RELEASE_KEY_ALIAS",
+	"ANDROID_RELEASE_KEY_PASSWORD"
+)
+
+if ($Target -in @("all", "android")) {
+	foreach ($name in $androidSigningEnv) {
+		if (-not [System.Environment]::GetEnvironmentVariable($name)) {
+			throw "Missing $name. See builds/android/release-signing.md."
+		}
+	}
+}
 
 function Get-ShortHash {
 	param(
@@ -98,6 +112,13 @@ $containerEnvArgs = @(
 	"-e", "GRADLE_USER_HOME=/workspace/external/local-docker/gradle",
 	"-e", "GITHUB_RUN_NUMBER=$env:GITHUB_RUN_NUMBER"
 )
+
+if ($Target -in @("all", "android")) {
+	foreach ($name in $androidSigningEnv) {
+		# Docker inherits the value; keep secret values out of command-line arguments.
+		$containerEnvArgs += @("-e", $name)
+	}
+}
 
 $passthroughEnv = @(
 	"WEB_ASSET_NAME",

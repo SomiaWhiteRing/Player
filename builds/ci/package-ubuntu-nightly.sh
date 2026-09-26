@@ -6,7 +6,7 @@ REPO_ROOT="${REPO_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 CACHE_ENV_FILE="${CACHE_ENV_FILE:-$SCRIPT_DIR/package-ubuntu-nightly.cache.env}"
 
 WEB_ASSET_NAME="${WEB_ASSET_NAME:-EasyRPG-Player-Kai-nightly-web.zip}"
-ANDROID_ASSET_NAME="${ANDROID_ASSET_NAME:-EasyRPG-Player-Kai-nightly-android-debug.apk}"
+ANDROID_ASSET_NAME="${ANDROID_ASSET_NAME:-EasyRPG-Player-Kai-nightly-android.apk}"
 ANDROID_ABIS="${ANDROID_ABIS:-armeabi-v7a,arm64-v8a,x86,x86_64}"
 ANDROID_VERBOSE_PACKAGE_INSPECTION="${ANDROID_VERBOSE_PACKAGE_INSPECTION:-0}"
 ARTIFACT_DIR="${ARTIFACT_DIR:-build/artifacts}"
@@ -279,7 +279,10 @@ run_android_gradle() {
 
 	chmod +x "$runner"
 	set +e
-	"$runner" "$@"
+	# Signing runs after Gradle; do not expose secrets to its daemon or caches.
+	env -u ANDROID_RELEASE_KEYSTORE_BASE64 -u ANDROID_RELEASE_STORE_PASSWORD \
+		-u ANDROID_RELEASE_KEY_ALIAS -u ANDROID_RELEASE_KEY_PASSWORD \
+		"$runner" "$@"
 	runner_status=$?
 	set -e
 
@@ -291,6 +294,10 @@ run_android_gradle() {
 }
 
 package_android() {
+	: "${ANDROID_RELEASE_KEYSTORE_BASE64:?Missing Android release keystore}"
+	: "${ANDROID_RELEASE_STORE_PASSWORD:?Missing Android release store password}"
+	: "${ANDROID_RELEASE_KEY_ALIAS:?Missing Android release key alias}"
+	: "${ANDROID_RELEASE_KEY_PASSWORD:?Missing Android release key password}"
 	local buildscripts_dir="${ANDROID_BUILDSCRIPTS_DIR:-${BUILDSCRIPTS_DIR:-$PWD/external/local-docker/android/buildscripts}}"
 	local android_work_dir="${ANDROID_WORK_DIR:-$buildscripts_dir/android}"
 	local android_gradle_build_root="${ANDROID_GRADLE_BUILD_ROOT:-}"
@@ -393,10 +400,11 @@ package_android() {
 		local gradle_args=(
 			-PtoolchainDirs="$android_work_dir" \
 			-PandroidUseCcache=true \
-			-PABI_FILTERS_DEBUG="$ANDROID_ABIS" \
+			-PABI_FILTERS_RELEASE="$ANDROID_ABIS" \
+			-PandroidUnsignedRelease=true \
 			-PVERSION_CODE_OVERRIDE="$version_code" \
 			-PcmakeOptions="-DPLAYER_TARGET_PLATFORM=SDL3 -DPLAYER_BUILD_LIBLCF=ON -DPLAYER_BUILD_LIBLCF_GIT=https://github.com/SomiaWhiteRing/liblcf.git -DPLAYER_BUILD_LIBLCF_BRANCH=my-feature-stable" \
-			assembleDebug \
+			assembleRelease \
 			--stacktrace
 		)
 
@@ -422,12 +430,15 @@ package_android() {
 	log "Staging Android artifact"
 	local artifact_dir="$ARTIFACT_DIR"
 	local asset_path="$artifact_dir/$ANDROID_ASSET_NAME"
-	local apk_path="${android_gradle_app_build_dir:-builds/android/app/build}/outputs/apk/debug/app-debug.apk"
+	local apk_path="${android_gradle_app_build_dir:-builds/android/app/build}/outputs/apk/release/app-release-unsigned.apk"
 
 	test -s "$apk_path" || {
 		echo "Missing build output: $apk_path"
 		exit 1
 	}
+	mkdir -p "$artifact_dir"
+	bash "$SCRIPT_DIR/sign-android-release.sh" "$apk_path" "$asset_path"
+	apk_path="$asset_path"
 	APK_PATH="$apk_path" ANDROID_ABIS="$ANDROID_ABIS" python3 - <<'PY'
 import os
 import sys
@@ -466,8 +477,6 @@ if missing:
 	sys.exit(1)
 PY
 
-	mkdir -p "$artifact_dir"
-	cp "$apk_path" "$asset_path"
 	log "Android artifact: $asset_path"
 	if [ -n "${GITHUB_OUTPUT:-}" ]; then
 		echo "artifact_path=$asset_path" >> "$GITHUB_OUTPUT"
