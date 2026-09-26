@@ -55,9 +55,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.BUILD_DIR }}
-          key: easyrpg-windows-build-${{ runner.os }}-${{ env.VCPKG_TRIPLET }}-${{ github.sha }}
+          key: easyrpg-windows-build-${{ github.repository }}-${{ runner.os }}-${{ env.VCPKG_TRIPLET }}-${{ github.sha }}
           restore-keys: |
-            easyrpg-windows-build-${{ runner.os }}-${{ env.VCPKG_TRIPLET }}-
+            easyrpg-windows-build-${{ github.repository }}-${{ runner.os }}-${{ env.VCPKG_TRIPLET }}-
 
       - name: Restore source timestamps for Windows incremental build
         run: |
@@ -69,6 +69,7 @@ jobs:
         id: package
         run: |
           .\builds\ci\package-windows-nightly.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Windows package build failed." }
           New-Item -ItemType Directory -Force -Path $env:BUILD_DIR | Out-Null
           git rev-parse HEAD | Set-Content -NoNewline (Join-Path $env:BUILD_DIR ".player-cache-commit")
 
